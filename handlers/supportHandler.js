@@ -4,13 +4,15 @@ const activeThreads = require('../state/activeThreads');
 const { Markup } = require('telegraf');
 
 function registerSupport(bot) {
-  // === Hauptmenü ===
+  // === /start zeigt Hauptmenü ===
   bot.command('start', async (ctx) => {
     await showMainMenu(ctx);
   });
 
   async function showMainMenu(ctx) {
-    const text = '👋 *Willkommen beim Worldskandi Support-Bot!*\n\nBitte wähle eine Option:';
+    const username = ctx.from.username ? `@${ctx.from.username}` : ctx.from.first_name;
+    const text = `👋 *Willkommen ${username} beim Worldskandi Support-Bot!*\n\nBitte wähle eine Option:`;
+
     const buttons = Markup.inlineKeyboard([
       [Markup.button.callback('📂 FAQ', 'menu_faq'), Markup.button.callback('🔗 Links', 'menu_links')],
       [Markup.button.callback('🛠 Support', 'menu_support'), Markup.button.callback('🆕 News', 'menu_news')]
@@ -77,7 +79,7 @@ function registerSupport(bot) {
     await showMainMenu(ctx);
   });
 
-  // === Support-Flow starten ===
+  // === Support starten ===
   bot.action('menu_support', async (ctx) => {
     const userId = ctx.from.id;
     supportState[userId] = { step: 'choose_topic' };
@@ -98,6 +100,7 @@ function registerSupport(bot) {
     await ctx.answerCbQuery();
   });
 
+  // === Anliegen auswählen ===
   bot.action(/^support_/, async (ctx) => {
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
@@ -111,7 +114,7 @@ function registerSupport(bot) {
     await ctx.answerCbQuery();
   });
 
-  // === Nachricht-Handling ===
+  // === Nachrichten-Handling ===
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
 
@@ -154,7 +157,7 @@ function registerSupport(bot) {
       delete supportState[userId];
     }
 
-    // === Antwort vom User → zurück in Thread ===
+    // === User antwortet im Bot ===
     else if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       const username = ctx.from.username || 'unbekannt';
@@ -177,7 +180,7 @@ function registerSupport(bot) {
       }
     }
 
-    // === Antwort vom Admin → zurück an User ===
+    // === Admin antwortet im Thread ===
     else if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
