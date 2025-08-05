@@ -6,8 +6,7 @@ const activeThreads = require('../state/activeThreads');
 function supportHandler(bot) {
   // === Menüpunkt "Support" ===
   bot.action('menu_support', async (ctx) => {
-    const userId = ctx.from.id;
-    supportState[userId] = { step: 'choose_topic' };
+    supportState[ctx.from.id] = { step: 'choose_topic' };
 
     const text = '📩 *Support starten*\n\nBitte wähle dein Anliegen:';
     const buttons = Markup.inlineKeyboard([
@@ -25,7 +24,7 @@ function supportHandler(bot) {
     await ctx.answerCbQuery();
   });
 
-  // === Kategorie-Auswahl
+  // === Thema auswählen (VIP, Payment, Tech, Other)
   bot.action(/^support_/, async (ctx) => {
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
@@ -62,15 +61,21 @@ function supportHandler(bot) {
 
     const selectedText = textMap[topic] || 'Bitte beschreibe dein Anliegen kurz.';
 
-    await ctx.replyWithMarkdown(`${selectedText}\n\n✍️ *Sende deine Nachricht:*`);
+    await ctx.editMessageText(`${selectedText}\n\n✍️ *Sende deine Nachricht:*`, {
+      parse_mode: 'Markdown',
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback('🔙 Zurück', 'menu_support')]
+      ]).reply_markup
+    });
+
     await ctx.answerCbQuery();
   });
 
-  // === Nachricht vom User → Thread erstellen oder weiterleiten
+  // === Nachricht kommt vom User ===
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
 
-    // Neues Ticket
+    // Neues Ticket erstellen
     if (ctx.chat.type === 'private' && supportState[userId]?.step === 'waiting_message') {
       const state = supportState[userId];
       const topicText = {
@@ -109,7 +114,7 @@ function supportHandler(bot) {
       delete supportState[userId];
     }
 
-    // Antwort vom User → in bestehendes Ticket
+    // Bestehendes Ticket – weitere Nachricht
     else if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       const username = ctx.from.username || 'unbekannt';
@@ -132,7 +137,7 @@ function supportHandler(bot) {
       }
     }
 
-    // Admin antwortet im Thread → Antwort an User
+    // Admin antwortet im Thread
     else if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
