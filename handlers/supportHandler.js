@@ -4,19 +4,19 @@ const activeThreads = require('../state/activeThreads');
 const { Markup } = require('telegraf');
 
 function registerSupport(bot) {
-  // /start zeigt Begrüßung & Buttons
+  // /start → Begrüßung + Buttons
   bot.command('start', async (ctx) => {
     supportState[ctx.from.id] = { step: 'choose_topic' };
 
-    await ctx.reply('👋 *Willkommen beim Worldskandi Support-Bot!*\n\nBitte wähle dein Anliegen:', {
-      parse_mode: 'Markdown',
-      reply_markup: Markup.inlineKeyboard([
+    await ctx.replyWithMarkdown(
+      '👋 *Willkommen beim Worldskandi Support-Bot!*\n\nBitte wähle dein Anliegen:',
+      Markup.inlineKeyboard([
         [Markup.button.callback('📦 VIP-Zugang', 'support_vip')],
         [Markup.button.callback('💰 Zahlung / Payment', 'support_payment')],
         [Markup.button.callback('🛠️ Technisches Problem', 'support_tech')],
         [Markup.button.callback('📝 Sonstiges', 'support_other')],
       ])
-    });
+    );
   });
 
   // Button-Auswahl speichern
@@ -64,7 +64,6 @@ function registerSupport(bot) {
           message_thread_id: thread.message_thread_id
         });
 
-        // Verbindung speichern
         activeThreads[userId] = thread.message_thread_id;
 
         await ctx.reply('✅ Dein Anliegen wurde weitergeleitet. Ein Admin meldet sich bald.');
@@ -99,7 +98,7 @@ function registerSupport(bot) {
       }
     }
 
-    // === 3. Admin antwortet im Thread → Nachricht geht anonym an User ===
+    // === 3. Admin antwortet im Thread → Nachricht anonym an User ===
     else if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
