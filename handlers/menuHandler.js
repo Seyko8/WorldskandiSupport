@@ -1,4 +1,5 @@
 const { Markup } = require('telegraf');
+const faqText = require('../content/faqText');
 
 function menuHandler(bot) {
   // === /start zeigt Hauptmenü ===
@@ -33,15 +34,11 @@ function menuHandler(bot) {
     }
   }
 
-  // === FAQ ===
+  // === FAQ ausgelagert ===
   bot.action('menu_faq', async (ctx) => {
-    const text = '📂 *Häufige Fragen (FAQ)*\n\n' +
-      '1️⃣ Wie werde ich VIP?\n👉 Über unseren VIP-Bot: @WSkandiVipBot\n\n' +
-      '2️⃣ Was kostet VIP?\n💸 Einmalig 50€ oder 100€ – kein Abo.\n\n' +
-      '3️⃣ Wie bekomme ich Zugang?\n📨 Nach Zahlung bekommst du sofort den Link.';
-
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(faqText, {
       parse_mode: 'Markdown',
+      disable_web_page_preview: true,
       reply_markup: Markup.inlineKeyboard([
         [Markup.button.callback('🔙 Zurück', 'menu_back')]
       ]).reply_markup
