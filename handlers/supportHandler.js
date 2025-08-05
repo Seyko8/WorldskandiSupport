@@ -1,5 +1,5 @@
 const { SUPPORT_GROUP_ID } = require('../config');
-const { supportState } = require('../state/supportState');
+const supportState = require('../state/supportState');
 const { Markup } = require('telegraf');
 
 function registerSupport(bot) {
@@ -17,7 +17,6 @@ function registerSupport(bot) {
   bot.action(/^support_/, async (ctx) => {
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
-    const username = ctx.from.username || 'unbekannt';
 
     supportState[userId] = {
       step: 'waiting_message',
@@ -43,10 +42,8 @@ function registerSupport(bot) {
       `📝 Thema: ${topicText[state.topic] || state.topic}\n\n` +
       `💬 Nachricht:\n${ctx.message.text}`;
 
-    // Send to support group (automatisch neuer Thread)
     await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, message, {
-      parse_mode: 'Markdown',
-      message_thread_id: undefined  // Optional: auto thread per API oder manuell
+      parse_mode: 'Markdown'
     });
 
     await ctx.reply('✅ Dein Anliegen wurde weitergeleitet. Ein Admin meldet sich bald.');
