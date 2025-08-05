@@ -4,7 +4,7 @@ const activeThreads = require('../state/activeThreads');
 const { Markup } = require('telegraf');
 
 function registerSupport(bot) {
-  // START-KOMMANDO → Anliegen-Auswahl
+  // /start zeigt Buttons
   bot.command('start', async (ctx) => {
     supportState[ctx.from.id] = { step: 'choose_topic' };
 
@@ -16,7 +16,7 @@ function registerSupport(bot) {
     ]));
   });
 
-  // BUTTON-AUSWAHL → Thema merken
+  // Auswahl-Handler
   bot.action(/^support_/, async (ctx) => {
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
@@ -29,11 +29,11 @@ function registerSupport(bot) {
     await ctx.reply(`Bitte beschreibe dein Anliegen zum Thema: ${topic.toUpperCase()}`);
   });
 
-  // HANDLING aller Nachrichten
+  // Haupt-Handler
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
 
-    // === FALL 1: User sendet erste Nachricht → Neues Ticket erstellen ===
+    // === 1. Neues Ticket vom User ===
     if (ctx.chat.type === 'private' && supportState[userId]?.step === 'waiting_message') {
       const state = supportState[userId];
       const topicText = {
@@ -48,6 +48,7 @@ function registerSupport(bot) {
 
       const fullText = `🆕 *Support-Ticket*\n` +
         `👤 User: [@${username}](tg://user?id=${userId})\n` +
+        `🆔 Telegram-ID: \`${userId}\`\n` +
         `📝 Thema: ${niceTopic}\n\n` +
         `💬 Nachricht:\n${ctx.message.text}`;
 
@@ -60,7 +61,7 @@ function registerSupport(bot) {
           message_thread_id: thread.message_thread_id
         });
 
-        // Speichere: welcher User gehört zu welchem Thread
+        // Verbindung speichern
         activeThreads[userId] = thread.message_thread_id;
 
         await ctx.reply('✅ Dein Anliegen wurde weitergeleitet. Ein Admin meldet sich bald.');
@@ -72,13 +73,15 @@ function registerSupport(bot) {
       delete supportState[userId];
     }
 
-    // === FALL 2: User schreibt im Bot (weiter) → Nachricht zurück in Thread senden ===
+    // === 2. User antwortet im Bot → Nachricht ins richtige Thread weiterleiten ===
     else if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       const username = ctx.from.username || 'unbekannt';
 
       const forwardText = `📨 *Antwort vom User*\n` +
-        `👤 @${username}\n\n💬 ${ctx.message.text}`;
+        `👤 @${username}\n` +
+        `🆔 \`${userId}\`\n\n` +
+        `💬 ${ctx.message.text}`;
 
       try {
         await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, forwardText, {
@@ -93,7 +96,7 @@ function registerSupport(bot) {
       }
     }
 
-    // === FALL 3: Admin schreibt im Thread → Nachricht geht an User ===
+    // === 3. Admin antwortet im Thread → Bot sendet Antwort an User (anonymisiert) ===
     else if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
@@ -103,8 +106,7 @@ function registerSupport(bot) {
       const userId = Object.keys(activeThreads).find(uid => activeThreads[uid] == threadId);
       if (!userId) return;
 
-      const sender = ctx.from.username || 'Admin';
-      const text = `📩 *Antwort vom Support*\n\n💬 ${ctx.message.text}\n\n👤 Von: ${sender}`;
+      const text = `📩 *Antwort vom Worldskandi Team*\n\n💬 ${ctx.message.text}`;
 
       try {
         await ctx.telegram.sendMessage(userId, text, { parse_mode: 'Markdown' });
