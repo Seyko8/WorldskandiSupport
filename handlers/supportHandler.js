@@ -4,21 +4,22 @@ const activeThreads = require('../state/activeThreads');
 const { Markup } = require('telegraf');
 
 function registerSupport(bot) {
-  // /start zeigt Buttons
+  // /start zeigt Begrüßung & Buttons
   bot.command('start', async (ctx) => {
     supportState[ctx.from.id] = { step: 'choose_topic' };
 
     await ctx.reply('👋 *Willkommen beim Worldskandi Support-Bot!*\n\nBitte wähle dein Anliegen:', {
-  parse_mode: 'Markdown',
-  reply_markup: Markup.inlineKeyboard([
-    [Markup.button.callback('📦 VIP-Zugang', 'support_vip')],
-    [Markup.button.callback('💰 Zahlung / Payment', 'support_payment')],
-    [Markup.button.callback('🛠️ Technisches Problem', 'support_tech')],
-    [Markup.button.callback('📝 Sonstiges', 'support_other')],
-  ])
-});
+      parse_mode: 'Markdown',
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback('📦 VIP-Zugang', 'support_vip')],
+        [Markup.button.callback('💰 Zahlung / Payment', 'support_payment')],
+        [Markup.button.callback('🛠️ Technisches Problem', 'support_tech')],
+        [Markup.button.callback('📝 Sonstiges', 'support_other')],
+      ])
+    });
+  });
 
-  // Auswahl-Handler
+  // Button-Auswahl speichern
   bot.action(/^support_/, async (ctx) => {
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
@@ -31,7 +32,7 @@ function registerSupport(bot) {
     await ctx.reply(`Bitte beschreibe dein Anliegen zum Thema: ${topic.toUpperCase()}`);
   });
 
-  // Haupt-Handler
+  // Nachrichten-Handler
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
 
@@ -75,7 +76,7 @@ function registerSupport(bot) {
       delete supportState[userId];
     }
 
-    // === 2. User antwortet im Bot → Nachricht ins richtige Thread weiterleiten ===
+    // === 2. User antwortet im Bot → Nachricht in Thread weiterleiten ===
     else if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       const username = ctx.from.username || 'unbekannt';
@@ -98,7 +99,7 @@ function registerSupport(bot) {
       }
     }
 
-    // === 3. Admin antwortet im Thread → Bot sendet Antwort an User (anonymisiert) ===
+    // === 3. Admin antwortet im Thread → Nachricht geht anonym an User ===
     else if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
