@@ -1,2 +1,3 @@
-// Einfaches globales Objekt zur Speicherung von User-Zuständen
-module.exports = {};
+// Datei: state/supportState.js
+const supportState = {};
+module.exports = supportState;
