@@ -17,10 +17,16 @@ function registerSupport(bot) {
     ]);
 
     if (ctx.updateType === 'callback_query') {
-      await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: buttons.reply_markup });
+      await ctx.editMessageText(text, {
+        parse_mode: 'Markdown',
+        reply_markup: buttons.reply_markup
+      });
       await ctx.answerCbQuery();
     } else {
-      await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: buttons.reply_markup });
+      await ctx.reply(text, {
+        parse_mode: 'Markdown',
+        reply_markup: buttons.reply_markup
+      });
     }
   }
 
@@ -33,7 +39,9 @@ function registerSupport(bot) {
 
     await ctx.editMessageText(text, {
       parse_mode: 'Markdown',
-      reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🔙 Zurück', 'menu_back')]])
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback('🔙 Zurück', 'menu_back')]
+      ]).reply_markup
     });
     await ctx.answerCbQuery();
   });
@@ -47,7 +55,9 @@ function registerSupport(bot) {
     await ctx.editMessageText(text, {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
-      reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🔙 Zurück', 'menu_back')]])
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback('🔙 Zurück', 'menu_back')]
+      ]).reply_markup
     });
     await ctx.answerCbQuery();
   });
@@ -56,7 +66,9 @@ function registerSupport(bot) {
     const text = '🆕 *Aktuelle Updates:*\n\nWir arbeiten täglich an Verbesserungen. Stay tuned!';
     await ctx.editMessageText(text, {
       parse_mode: 'Markdown',
-      reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🔙 Zurück', 'menu_back')]])
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback('🔙 Zurück', 'menu_back')]
+      ]).reply_markup
     });
     await ctx.answerCbQuery();
   });
@@ -65,7 +77,7 @@ function registerSupport(bot) {
     await showMainMenu(ctx);
   });
 
-  // === SUPPORT FLOW ===
+  // === Support-Flow starten ===
   bot.action('menu_support', async (ctx) => {
     const userId = ctx.from.id;
     supportState[userId] = { step: 'choose_topic' };
@@ -79,7 +91,10 @@ function registerSupport(bot) {
       [Markup.button.callback('🔙 Zurück', 'menu_back')]
     ]);
 
-    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: buttons.reply_markup });
+    await ctx.editMessageText(text, {
+      parse_mode: 'Markdown',
+      reply_markup: buttons.reply_markup
+    });
     await ctx.answerCbQuery();
   });
 
@@ -96,7 +111,7 @@ function registerSupport(bot) {
     await ctx.answerCbQuery();
   });
 
-  // === Nachrichten-Handling ===
+  // === Nachricht-Handling ===
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
 
@@ -162,7 +177,7 @@ function registerSupport(bot) {
       }
     }
 
-    // === Admin antwortet im Thread ===
+    // === Antwort vom Admin → zurück an User ===
     else if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
