@@ -8,13 +8,15 @@ function registerSupport(bot) {
   bot.command('start', async (ctx) => {
     supportState[ctx.from.id] = { step: 'choose_topic' };
 
-    await ctx.reply('Was ist dein Anliegen?', Markup.inlineKeyboard([
-      [Markup.button.callback('📦 VIP-Zugang', 'support_vip')],
-      [Markup.button.callback('💰 Zahlung / Payment', 'support_payment')],
-      [Markup.button.callback('🛠️ Technisches Problem', 'support_tech')],
-      [Markup.button.callback('📝 Sonstiges', 'support_other')],
-    ]));
-  });
+    await ctx.reply('👋 *Willkommen beim Worldskandi Support-Bot!*\n\nBitte wähle dein Anliegen:', {
+  parse_mode: 'Markdown',
+  reply_markup: Markup.inlineKeyboard([
+    [Markup.button.callback('📦 VIP-Zugang', 'support_vip')],
+    [Markup.button.callback('💰 Zahlung / Payment', 'support_payment')],
+    [Markup.button.callback('🛠️ Technisches Problem', 'support_tech')],
+    [Markup.button.callback('📝 Sonstiges', 'support_other')],
+  ])
+});
 
   // Auswahl-Handler
   bot.action(/^support_/, async (ctx) => {
