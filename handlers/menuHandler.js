@@ -34,7 +34,7 @@ function menuHandler(bot) {
     }
   }
 
-  // === FAQ ausgelagert ===
+  // === FAQ (ausgelagert) ===
   bot.action('menu_faq', async (ctx) => {
     await ctx.editMessageText(faqText, {
       parse_mode: 'Markdown',
@@ -46,12 +46,15 @@ function menuHandler(bot) {
     await ctx.answerCbQuery();
   });
 
-  // === Links ===
+  // === Wichtige Links (aktualisiert ohne "18+") ===
   bot.action('menu_links', async (ctx) => {
     const text = '🔗 *Wichtige Links:*\n\n' +
-      '📷 [Instagram](https://instagram.com/worldskandi)\n' +
-      '🎥 VIP Bot: @WSkandiVipBot\n' +
-      '📩 Support: @WorldskandiNavi';
+      '📸 [Instagram](http://instagram.com/offiziell.worldskandi)\n' +
+      '👻 [Snapchat](https://www.snapchat.com/@offiziellwsk)\n\n' +
+      '🔞 [Velvet](https://t.me/VelvetGlobal)\n' +
+      '🔞 [Skandi](https://t.me/+h_SoVDxZc1lhZjRh)\n' +
+      '💾 [Speicher-Kanal](https://t.me/+Be0bO9BWhHk1ZWU0)\n\n' +
+      '📥 [In alle Gruppen rein](https://t.me/addlist/ztczKNjf1LNjMzFk)';
 
     await ctx.editMessageText(text, {
       parse_mode: 'Markdown',
