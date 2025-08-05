@@ -3,6 +3,7 @@ const supportState = require('../state/supportState');
 const { Markup } = require('telegraf');
 
 function registerSupport(bot) {
+  // /start Befehl → Anliegen-Auswahl zeigen
   bot.command('start', async (ctx) => {
     supportState[ctx.from.id] = { step: 'choose_topic' };
 
@@ -14,6 +15,7 @@ function registerSupport(bot) {
     ]));
   });
 
+  // Wenn Button geklickt → Thema merken
   bot.action(/^support_/, async (ctx) => {
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
@@ -26,6 +28,7 @@ function registerSupport(bot) {
     await ctx.reply(`Bitte beschreibe dein Anliegen zum Thema: ${topic.toUpperCase()}`);
   });
 
+  // Wenn Nachricht nach Auswahl kommt → neues Thema erstellen + Nachricht posten
   bot.on('message', async (ctx) => {
     const state = supportState[ctx.from.id];
     if (!state || state.step !== 'waiting_message') return;
@@ -37,17 +40,34 @@ function registerSupport(bot) {
       other: '📝 Sonstiges'
     };
 
-    const message = `🆕 *Support-Ticket*\n` +
-      `👤 User: [@${ctx.from.username || 'unbekannt'}](tg://user?id=${ctx.from.id})\n` +
-      `📝 Thema: ${topicText[state.topic] || state.topic}\n\n` +
+    const niceTopic = topicText[state.topic] || state.topic;
+    const username = ctx.from.username || 'unbekannt';
+    const userId = ctx.from.id;
+
+    const fullText = `🆕 *Support-Ticket*\n` +
+      `👤 User: [@${username}](tg://user?id=${userId})\n` +
+      `📝 Thema: ${niceTopic}\n\n` +
       `💬 Nachricht:\n${ctx.message.text}`;
 
-    await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, message, {
-      parse_mode: 'Markdown'
-    });
+    try {
+      // 1. Neues Thema (Thread) in Support-Gruppe erstellen
+      const topicTitle = `${niceTopic} – @${username}`;
+      const thread = await ctx.telegram.createForumTopic(SUPPORT_GROUP_ID, topicTitle);
 
-    await ctx.reply('✅ Dein Anliegen wurde weitergeleitet. Ein Admin meldet sich bald.');
+      // 2. Nachricht in den Thread posten
+      await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, fullText, {
+        parse_mode: 'Markdown',
+        message_thread_id: thread.message_thread_id
+      });
 
+      // 3. Dem User Bescheid sagen
+      await ctx.reply('✅ Dein Anliegen wurde weitergeleitet. Ein Admin meldet sich bald.');
+    } catch (err) {
+      console.error('❌ Fehler bei Thread-Erstellung:', err);
+      await ctx.reply('⚠️ Fehler beim Erstellen deines Support-Tickets. Bitte versuch es später erneut.');
+    }
+
+    // Zustand löschen
     delete supportState[ctx.from.id];
   });
 }
