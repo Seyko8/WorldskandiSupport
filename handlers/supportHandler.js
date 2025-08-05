@@ -4,63 +4,85 @@ const activeThreads = require('../state/activeThreads');
 const { Markup } = require('telegraf');
 
 function registerSupport(bot) {
-  // === /start zeigt Hauptmenü ===
+  // === Hauptmenü ===
   bot.command('start', async (ctx) => {
-    await ctx.replyWithMarkdown(
-      '👋 *Willkommen beim Worldskandi Support-Bot!*\n\nBitte wähle eine Option:',
-      Markup.inlineKeyboard([
-        [Markup.button.callback('📂 FAQ', 'open_faq'), Markup.button.callback('🔗 Links', 'open_links')],
-        [Markup.button.callback('🛠 Support', 'start_support'), Markup.button.callback('🆕 News', 'open_news')],
-      ])
-    );
+    await showMainMenu(ctx);
   });
 
-  // === Hauptmenü-Aktionen ===
-  bot.action('open_faq', async (ctx) => {
+  async function showMainMenu(ctx) {
+    const text = '👋 *Willkommen beim Worldskandi Support-Bot!*\n\nBitte wähle eine Option:';
+    const buttons = Markup.inlineKeyboard([
+      [Markup.button.callback('📂 FAQ', 'menu_faq'), Markup.button.callback('🔗 Links', 'menu_links')],
+      [Markup.button.callback('🛠 Support', 'menu_support'), Markup.button.callback('🆕 News', 'menu_news')]
+    ]);
+
+    if (ctx.updateType === 'callback_query') {
+      await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: buttons.reply_markup });
+      await ctx.answerCbQuery();
+    } else {
+      await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: buttons.reply_markup });
+    }
+  }
+
+  // === Menüaktionen ===
+  bot.action('menu_faq', async (ctx) => {
+    const text = '📂 *Häufige Fragen (FAQ)*\n\n' +
+      '1️⃣ Wie werde ich VIP?\n👉 Über unseren VIP-Bot: @WSkandiVipBot\n\n' +
+      '2️⃣ Was kostet VIP?\n💸 Einmalig 50€ oder 100€ – kein Abo.\n\n' +
+      '3️⃣ Wie bekomme ich Zugang?\n📨 Nach Zahlung bekommst du sofort den Link.';
+
+    await ctx.editMessageText(text, {
+      parse_mode: 'Markdown',
+      reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🔙 Zurück', 'menu_back')]])
+    });
     await ctx.answerCbQuery();
-    await ctx.replyWithMarkdown(
-      '📂 *Häufige Fragen (FAQ)*\n\n' +
-      '1️⃣ Wie werde ich VIP?\n' +
-      '👉 Über unseren VIP-Bot: @WSkandiVipBot\n\n' +
-      '2️⃣ Was kostet VIP?\n' +
-      '💸 Einmalig 50€ oder 100€ – ohne Abo.\n\n' +
-      '3️⃣ Wie erhalte ich Zugang?\n' +
-      '📨 Nach Bezahlung erhältst du sofort den Link.'
-    );
   });
 
-  bot.action('open_links', async (ctx) => {
-    await ctx.answerCbQuery();
-    await ctx.replyWithMarkdown(
-      '🔗 *Wichtige Links:*\n\n' +
-      '📷 Instagram: https://instagram.com/worldskandi\n' +
+  bot.action('menu_links', async (ctx) => {
+    const text = '🔗 *Wichtige Links:*\n\n' +
+      '📷 [Instagram](https://instagram.com/worldskandi)\n' +
       '🎥 VIP Bot: @WSkandiVipBot\n' +
-      '📩 Support: @WorldskandiNavi\n'
-    );
-  });
+      '📩 Support: @WorldskandiNavi';
 
-  bot.action('open_news', async (ctx) => {
+    await ctx.editMessageText(text, {
+      parse_mode: 'Markdown',
+      disable_web_page_preview: true,
+      reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🔙 Zurück', 'menu_back')]])
+    });
     await ctx.answerCbQuery();
-    await ctx.replyWithMarkdown('🆕 *Aktuelle Updates folgen bald...*');
   });
 
-  // === Support starten ===
-  bot.action('start_support', async (ctx) => {
+  bot.action('menu_news', async (ctx) => {
+    const text = '🆕 *Aktuelle Updates:*\n\nWir arbeiten täglich an Verbesserungen. Stay tuned!';
+    await ctx.editMessageText(text, {
+      parse_mode: 'Markdown',
+      reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🔙 Zurück', 'menu_back')]])
+    });
+    await ctx.answerCbQuery();
+  });
+
+  bot.action('menu_back', async (ctx) => {
+    await showMainMenu(ctx);
+  });
+
+  // === SUPPORT FLOW ===
+  bot.action('menu_support', async (ctx) => {
     const userId = ctx.from.id;
     supportState[userId] = { step: 'choose_topic' };
 
-    await ctx.replyWithMarkdown(
-      '📩 *Support starten*\n\nBitte wähle dein Anliegen:',
-      Markup.inlineKeyboard([
-        [Markup.button.callback('📦 VIP-Zugang', 'support_vip')],
-        [Markup.button.callback('💰 Zahlung / Payment', 'support_payment')],
-        [Markup.button.callback('🛠️ Technisches Problem', 'support_tech')],
-        [Markup.button.callback('📝 Sonstiges', 'support_other')],
-      ])
-    );
+    const text = '📩 *Support starten*\n\nBitte wähle dein Anliegen:';
+    const buttons = Markup.inlineKeyboard([
+      [Markup.button.callback('📦 VIP-Zugang', 'support_vip')],
+      [Markup.button.callback('💰 Zahlung / Payment', 'support_payment')],
+      [Markup.button.callback('🛠️ Technisches Problem', 'support_tech')],
+      [Markup.button.callback('📝 Sonstiges', 'support_other')],
+      [Markup.button.callback('🔙 Zurück', 'menu_back')]
+    ]);
+
+    await ctx.editMessageText(text, { parse_mode: 'Markdown', reply_markup: buttons.reply_markup });
+    await ctx.answerCbQuery();
   });
 
-  // === Thema-Auswahl speichern ===
   bot.action(/^support_/, async (ctx) => {
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
@@ -71,13 +93,14 @@ function registerSupport(bot) {
     };
 
     await ctx.reply(`Bitte beschreibe dein Anliegen zum Thema: ${topic.toUpperCase()}`);
+    await ctx.answerCbQuery();
   });
 
-  // === Nachricht-Handling ===
+  // === Nachrichten-Handling ===
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
 
-    // === 1. Neues Ticket erstellen ===
+    // === Neues Ticket ===
     if (ctx.chat.type === 'private' && supportState[userId]?.step === 'waiting_message') {
       const state = supportState[userId];
       const topicText = {
@@ -116,7 +139,7 @@ function registerSupport(bot) {
       delete supportState[userId];
     }
 
-    // === 2. User antwortet im Bot → Weiter in Thread ===
+    // === Antwort vom User → zurück in Thread ===
     else if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       const username = ctx.from.username || 'unbekannt';
@@ -139,7 +162,7 @@ function registerSupport(bot) {
       }
     }
 
-    // === 3. Admin antwortet im Thread → Nachricht geht anonymisiert zurück ===
+    // === Admin antwortet im Thread ===
     else if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
