@@ -24,7 +24,7 @@ function supportHandler(bot) {
     await ctx.answerCbQuery();
   });
 
-  // === Thema auswählen (VIP, Payment, Tech, Other)
+  // === Kategorie-Auswahl
   bot.action(/^support_/, async (ctx) => {
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
@@ -71,11 +71,19 @@ function supportHandler(bot) {
     await ctx.answerCbQuery();
   });
 
-  // === Nachricht kommt vom User ===
+  // === Nachricht vom User (Text, Media usw.)
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
+    const username = ctx.from.username || 'unbekannt';
 
-    // Neues Ticket erstellen
+    const getHeader = (topic) => {
+      return `🆕 *Support-Ticket*\n` +
+        `👤 User: [@${username}](tg://user?id=${userId})\n` +
+        `🆔 Telegram-ID: \`${userId}\`\n` +
+        `📝 Thema: ${topic}\n\n`;
+    };
+
+    // Neues Ticket
     if (ctx.chat.type === 'private' && supportState[userId]?.step === 'waiting_message') {
       const state = supportState[userId];
       const topicText = {
@@ -84,26 +92,15 @@ function supportHandler(bot) {
         tech: '🛠️ Technisches Problem',
         other: '📝 Sonstiges'
       };
-
       const niceTopic = topicText[state.topic] || state.topic;
-      const username = ctx.from.username || 'unbekannt';
-
-      const fullText = `🆕 *Support-Ticket*\n` +
-        `👤 User: [@${username}](tg://user?id=${userId})\n` +
-        `🆔 Telegram-ID: \`${userId}\`\n` +
-        `📝 Thema: ${niceTopic}\n\n` +
-        `💬 Nachricht:\n${ctx.message.text}`;
 
       try {
         const topicTitle = `${niceTopic} – @${username}`;
         const thread = await ctx.telegram.createForumTopic(SUPPORT_GROUP_ID, topicTitle);
+        const threadId = thread.message_thread_id;
 
-        await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, fullText, {
-          parse_mode: 'Markdown',
-          message_thread_id: thread.message_thread_id
-        });
-
-        activeThreads[userId] = thread.message_thread_id;
+        await forwardMessage(ctx, threadId, getHeader(niceTopic));
+        activeThreads[userId] = threadId;
 
         await ctx.reply('✅ Dein Anliegen wurde weitergeleitet. Ein Admin meldet sich bald.');
       } catch (err) {
@@ -114,22 +111,12 @@ function supportHandler(bot) {
       delete supportState[userId];
     }
 
-    // Bestehendes Ticket – weitere Nachricht
+    // Folge-Nachricht in bestehendem Ticket
     else if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
-      const username = ctx.from.username || 'unbekannt';
-
-      const forwardText = `📨 *Antwort vom User*\n` +
-        `👤 @${username}\n` +
-        `🆔 \`${userId}\`\n\n` +
-        `💬 ${ctx.message.text}`;
 
       try {
-        await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, forwardText, {
-          parse_mode: 'Markdown',
-          message_thread_id: threadId
-        });
-
+        await forwardMessage(ctx, threadId, `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\`\n\n`);
         await ctx.reply('✅ Deine Nachricht wurde an den Support gesendet.');
       } catch (err) {
         console.error('❌ Fehler beim Weiterleiten:', err);
@@ -137,7 +124,7 @@ function supportHandler(bot) {
       }
     }
 
-    // Admin antwortet im Thread
+    // Admin antwortet im Thread → Nachricht zurück an User
     else if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
@@ -147,8 +134,7 @@ function supportHandler(bot) {
       const userId = Object.keys(activeThreads).find(uid => activeThreads[uid] == threadId);
       if (!userId) return;
 
-      const text = `📩 *Antwort vom Worldskandi Team*\n\n💬 ${ctx.message.text}`;
-
+      const text = `📩 *Antwort vom Worldskandi Team*\n\n💬 ${ctx.message.text || '🗂️ Datei erhalten'}`;
       try {
         await ctx.telegram.sendMessage(userId, text, { parse_mode: 'Markdown' });
       } catch (err) {
@@ -156,6 +142,48 @@ function supportHandler(bot) {
       }
     }
   });
+
+  // === Medienweiterleitung (Text, Foto, Video, Voice, Datei)
+  async function forwardMessage(ctx, threadId, header) {
+    const chatId = SUPPORT_GROUP_ID;
+    const caption = header + (ctx.message.caption || ctx.message.text || '');
+
+    if (ctx.message.photo) {
+      const fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
+      await ctx.telegram.sendPhoto(chatId, fileId, {
+        caption,
+        parse_mode: 'Markdown',
+        message_thread_id: threadId
+      });
+    } else if (ctx.message.video) {
+      await ctx.telegram.sendVideo(chatId, ctx.message.video.file_id, {
+        caption,
+        parse_mode: 'Markdown',
+        message_thread_id: threadId
+      });
+    } else if (ctx.message.voice) {
+      await ctx.telegram.sendVoice(chatId, ctx.message.voice.file_id, {
+        caption,
+        parse_mode: 'Markdown',
+        message_thread_id: threadId
+      });
+    } else if (ctx.message.document) {
+      await ctx.telegram.sendDocument(chatId, ctx.message.document.file_id, {
+        caption,
+        parse_mode: 'Markdown',
+        message_thread_id: threadId
+      });
+    } else if (ctx.message.text) {
+      await ctx.telegram.sendMessage(chatId, caption, {
+        parse_mode: 'Markdown',
+        message_thread_id: threadId
+      });
+    } else {
+      await ctx.telegram.sendMessage(chatId, '⚠️ Nicht unterstützter Nachrichtentyp.', {
+        message_thread_id: threadId
+      });
+    }
+  }
 }
 
 module.exports = supportHandler;
