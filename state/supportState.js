@@ -1,3 +1,2 @@
-// Datei: state/supportState.js
-const supportState = {};
-module.exports = supportState;
+// Ein globales Objekt für alle Nutzerzustände
+module.exports = {};
