@@ -4,12 +4,53 @@ const activeThreads = require('../state/activeThreads');
 const { Markup } = require('telegraf');
 
 function registerSupport(bot) {
-  // /start → Begrüßung + Buttons
+  // === /start zeigt Hauptmenü ===
   bot.command('start', async (ctx) => {
-    supportState[ctx.from.id] = { step: 'choose_topic' };
+    await ctx.replyWithMarkdown(
+      '👋 *Willkommen beim Worldskandi Support-Bot!*\n\nBitte wähle eine Option:',
+      Markup.inlineKeyboard([
+        [Markup.button.callback('📂 FAQ', 'open_faq'), Markup.button.callback('🔗 Links', 'open_links')],
+        [Markup.button.callback('🛠 Support', 'start_support'), Markup.button.callback('🆕 News', 'open_news')],
+      ])
+    );
+  });
+
+  // === Hauptmenü-Aktionen ===
+  bot.action('open_faq', async (ctx) => {
+    await ctx.answerCbQuery();
+    await ctx.replyWithMarkdown(
+      '📂 *Häufige Fragen (FAQ)*\n\n' +
+      '1️⃣ Wie werde ich VIP?\n' +
+      '👉 Über unseren VIP-Bot: @WSkandiVipBot\n\n' +
+      '2️⃣ Was kostet VIP?\n' +
+      '💸 Einmalig 50€ oder 100€ – ohne Abo.\n\n' +
+      '3️⃣ Wie erhalte ich Zugang?\n' +
+      '📨 Nach Bezahlung erhältst du sofort den Link.'
+    );
+  });
+
+  bot.action('open_links', async (ctx) => {
+    await ctx.answerCbQuery();
+    await ctx.replyWithMarkdown(
+      '🔗 *Wichtige Links:*\n\n' +
+      '📷 Instagram: https://instagram.com/worldskandi\n' +
+      '🎥 VIP Bot: @WSkandiVipBot\n' +
+      '📩 Support: @WorldskandiNavi\n'
+    );
+  });
+
+  bot.action('open_news', async (ctx) => {
+    await ctx.answerCbQuery();
+    await ctx.replyWithMarkdown('🆕 *Aktuelle Updates folgen bald...*');
+  });
+
+  // === Support starten ===
+  bot.action('start_support', async (ctx) => {
+    const userId = ctx.from.id;
+    supportState[userId] = { step: 'choose_topic' };
 
     await ctx.replyWithMarkdown(
-      '👋 *Willkommen beim Worldskandi Support-Bot!*\n\nBitte wähle dein Anliegen:',
+      '📩 *Support starten*\n\nBitte wähle dein Anliegen:',
       Markup.inlineKeyboard([
         [Markup.button.callback('📦 VIP-Zugang', 'support_vip')],
         [Markup.button.callback('💰 Zahlung / Payment', 'support_payment')],
@@ -19,7 +60,7 @@ function registerSupport(bot) {
     );
   });
 
-  // Button-Auswahl speichern
+  // === Thema-Auswahl speichern ===
   bot.action(/^support_/, async (ctx) => {
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
@@ -32,11 +73,11 @@ function registerSupport(bot) {
     await ctx.reply(`Bitte beschreibe dein Anliegen zum Thema: ${topic.toUpperCase()}`);
   });
 
-  // Nachrichten-Handler
+  // === Nachricht-Handling ===
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
 
-    // === 1. Neues Ticket vom User ===
+    // === 1. Neues Ticket erstellen ===
     if (ctx.chat.type === 'private' && supportState[userId]?.step === 'waiting_message') {
       const state = supportState[userId];
       const topicText = {
@@ -75,7 +116,7 @@ function registerSupport(bot) {
       delete supportState[userId];
     }
 
-    // === 2. User antwortet im Bot → Nachricht in Thread weiterleiten ===
+    // === 2. User antwortet im Bot → Weiter in Thread ===
     else if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       const username = ctx.from.username || 'unbekannt';
@@ -98,7 +139,7 @@ function registerSupport(bot) {
       }
     }
 
-    // === 3. Admin antwortet im Thread → Nachricht anonym an User ===
+    // === 3. Admin antwortet im Thread → Nachricht geht anonymisiert zurück ===
     else if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
