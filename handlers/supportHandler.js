@@ -4,7 +4,6 @@ const activeThreads = require('../state/activeThreads');
 const { Markup } = require('telegraf');
 
 function registerSupport(bot) {
-  // Schritt 1: /start zeigt Anliegen-Auswahl
   bot.command('start', async (ctx) => {
     supportState[ctx.from.id] = { step: 'choose_topic' };
 
@@ -16,7 +15,6 @@ function registerSupport(bot) {
     ]));
   });
 
-  // Schritt 2: Thema auswählen
   bot.action(/^support_/, async (ctx) => {
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
@@ -29,13 +27,12 @@ function registerSupport(bot) {
     await ctx.reply(`Bitte beschreibe dein Anliegen zum Thema: ${topic.toUpperCase()}`);
   });
 
-  // Schritt 3: Nachricht empfangen → Thread erstellen + senden
   bot.on('message', async (ctx) => {
-    // FALL A: PRIVATE MESSAGE → TICKET ERSTELLUNG
-    if (ctx.chat.type === 'private') {
-      const state = supportState[ctx.from.id];
-      if (!state || state.step !== 'waiting_message') return;
+    const userId = ctx.from.id;
 
+    // FALL 1: User schickt erste Nachricht → Ticket erstellen
+    if (ctx.chat.type === 'private' && supportState[userId]?.step === 'waiting_message') {
+      const state = supportState[userId];
       const topicText = {
         vip: '📦 VIP-Zugang',
         payment: '💰 Zahlung / Payment',
@@ -45,7 +42,6 @@ function registerSupport(bot) {
 
       const niceTopic = topicText[state.topic] || state.topic;
       const username = ctx.from.username || 'unbekannt';
-      const userId = ctx.from.id;
 
       const fullText = `🆕 *Support-Ticket*\n` +
         `👤 User: [@${username}](tg://user?id=${userId})\n` +
@@ -56,42 +52,41 @@ function registerSupport(bot) {
         const topicTitle = `${niceTopic} – @${username}`;
         const thread = await ctx.telegram.createForumTopic(SUPPORT_GROUP_ID, topicTitle);
 
-        // Nachricht in Thread senden
+        // Nachricht in den neuen Thread posten
         await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, fullText, {
           parse_mode: 'Markdown',
           message_thread_id: thread.message_thread_id
         });
 
-        // Thread speichern
-        activeThreads[thread.message_thread_id] = userId;
+        // Verbindung merken
+        activeThreads[userId] = thread.message_thread_id;
 
         await ctx.reply('✅ Dein Anliegen wurde weitergeleitet. Ein Admin meldet sich bald.');
       } catch (err) {
         console.error('❌ Fehler bei Thread-Erstellung:', err);
-        await ctx.reply('⚠️ Fehler beim Erstellen deines Support-Tickets. Bitte versuch es später erneut.');
+        await ctx.reply('⚠️ Fehler beim Erstellen deines Tickets. Bitte versuch es später nochmal.');
       }
 
-      delete supportState[ctx.from.id];
+      delete supportState[userId];
     }
 
-    // FALL B: NACHRICHT IM THREAD (Support-Gruppe)
-    else if (
-      ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
-      ctx.message.message_thread_id &&
-      !ctx.from.is_bot
-    ) {
-      const threadId = ctx.message.message_thread_id;
-      const userId = activeThreads[threadId];
+    // FALL 2: User antwortet im Bot (aktives Ticket vorhanden)
+    else if (ctx.chat.type === 'private' && activeThreads[userId]) {
+      const threadId = activeThreads[userId];
+      const username = ctx.from.username || 'unbekannt';
 
-      if (!userId) return;
-
-      const sender = ctx.from.username || 'Admin';
-      const text = `📩 *Antwort vom Support*\n\n💬 ${ctx.message.text}\n\n👤 Von: ${sender}`;
+      const forwardText = `📨 *Antwort vom User*\n` +
+        `👤 @${username}\n\n💬 ${ctx.message.text}`;
 
       try {
-        await ctx.telegram.sendMessage(userId, text, { parse_mode: 'Markdown' });
+        await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, forwardText, {
+          parse_mode: 'Markdown',
+          message_thread_id: threadId
+        });
+        await ctx.reply('✅ Deine Nachricht wurde an den Support gesendet.');
       } catch (err) {
-        console.error('❌ Fehler beim Antworten an User:', err.description || err.message);
+        console.error('❌ Fehler beim Weiterleiten der User-Antwort:', err);
+        await ctx.reply('⚠️ Nachricht konnte nicht weitergeleitet werden.');
       }
     }
   });
