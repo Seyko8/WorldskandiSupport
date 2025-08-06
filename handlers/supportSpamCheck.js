@@ -5,11 +5,8 @@ const spamPhrases = [
   'kommt noch was',
   'wird es geöffnet',
   'wie lange dauert',
-  'hallo',
   'any news',
-  'wann kommt',
   'noch nix',
-  'gruppe zu',
   'öffnen wann',
   'noch kein zugang'
 ];
