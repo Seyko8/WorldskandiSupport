@@ -7,7 +7,7 @@ function setupMenu(bot) {
     `3️⃣ Wie erhalte ich Zugang?\n📨 Nach der Zahlung bekommst du sofort den Link.\n\n` +
     `4️⃣ Was bringt mir der Forward-Chat?\n📡 Du erhältst alle Beiträge aus der Hauptgruppe direkt in einem privaten Kanal.\n\n` +
     `5️⃣ Welche Gruppe öffnet?\n🕒 Wir haben keine festen „Öffnungszeiten“. Halte die Gruppe im Blick – dort bekommst du vor jeder Öffnung eine Nachricht.\n\n` +
-    `6️⃣ Welche Gruppen gibt es?\n📋 Eine Übersicht aller Gruppen findest du hier:\nhttps://t.me/Worldskandinavi\n\n` +
+    `6️⃣ Welche Gruppen gibt es?\n📋 Eine Übersicht aller Gruppen findest du [hier](https://t.me/Worldskandinavi)\n\n` +
     `7️⃣ Wodurch kann ich gebannt werden?\n🚫 Das Regelwerk gilt für alle User und Admins. Für einen klaren Überblick bitte einen Admin nach dem Regelwerk fragen.\n\n` +
     `8️⃣ Ich habe meinen VIP-Zugang verloren – was tun?\n🔑 Sende uns den Chat-Verlauf mit unserem Bot und den Kaufbeleg von der Crypto-Voucher-Webseite (per E-Mail erhalten), damit wir den Zugang wiederherstellen können.\n\n` +
     `9️⃣ Kann ich mein VIP upgraden?\n⬆️ Ja, einfach den Differenzbetrag bezahlen – den Rest regelt Wir.\n\n` +
