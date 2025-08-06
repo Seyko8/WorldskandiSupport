@@ -89,16 +89,16 @@ function supportHandler(bot) {
 
           await forwardMessage(ctx, threadId, getHeader(topic));
 
-          await ctx.telegram.sendMessage(SUPPORT_GROUP_ID,
-            `👮 Admin-Aktion erforderlich:\n[✅ Akzeptieren](https://t.me/c/${String(SUPPORT_GROUP_ID).replace('-100', '')}/${threadId}) oder [❌ Ablehnen](https://t.me/c/${String(SUPPORT_GROUP_ID).replace('-100', '')}/${threadId})`,
-            {
-              parse_mode: 'Markdown',
-              message_thread_id: threadId,
-              reply_markup: Markup.inlineKeyboard([
-                [Markup.button.callback('✅ Akzeptieren', `accept_${userId}`),
-                 Markup.button.callback('❌ Ablehnen', `deny_${userId}`)]
-              ])
-            });
+          // ✅ Richtige Buttons senden
+          await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, '👮 Admin-Aktion erforderlich:', {
+            message_thread_id: threadId,
+            reply_markup: Markup.inlineKeyboard([
+              [
+                Markup.button.callback('✅ Akzeptieren', `accept_${userId}`),
+                Markup.button.callback('❌ Ablehnen', `deny_${userId}`)
+              ]
+            ]).reply_markup
+          });
 
           await ctx.reply('✅ Dein Anliegen wurde weitergeleitet. Ein Admin meldet sich bald.');
         } catch (err) {
