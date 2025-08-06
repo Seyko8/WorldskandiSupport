@@ -53,10 +53,10 @@ function setupTicketFlow(bot) {
     supportState[ctx.from.id] = { step: 'waiting_message', topic };
 
     const texts = {
-      vip: '📦 *VIP-Zugang*\n\n❗ Bitte sende Chatnachweis + Kaufbeleg (E-Mail).',
-      payment: '💰 *Payment / Forward Chat*\n\n⚠️ Nach Sperrung kommt neuer Link in 1 Woche.',
-      tech: '🛠 *Technisches Problem*\n\nProbleme mit Gruppen oder Beiträgen? Schreib uns.',
-      other: '📝 *Sonstiges*\n\nBitte keine „wann öffnet“-Fragen.'
+      vip: '📦 *VIP-Zugang*\n\nBitte sende uns den Chatnachweis mit dem VIP-Bot sowie den Kaufbeleg, den du per E-Mail von CryptoVoucher erhalten hast. \n\nBitte keine Nachrichten wie „Wie lange noch?“. Warte mindestens 24h – dann kannst du Support schreiben.',
+      payment: '💰 *Payment / Forward Chat*\n\nTelegram hat Gruppen & Zugänge gesperrt. Alle müssen neu kaufen. Neue Links werden regelmäßig im jeweiligen Kanal gepostet – meist nach ca. 1 Woche.',
+      tech: '🛠 *Technisches Problem*\n\nHast du Probleme beim Anzeigen unserer Beiträge oder Gruppen? Dann schildere dein Problem hier. Bitte keine Fragen wie „Wann öffnet die Gruppe?“ – dafür schau in die FAQ.',
+      other: '📝 *Sonstiges*\n\nHast du Probleme mit Beiträgen, Admins oder hast etwas Verdächtiges bemerkt? Dann teile es uns hier mit. Auch hier gilt: keine „Wann öffnet“-Fragen – siehe FAQ.'
     };
 
     await ctx.editMessageText(`${texts[topic]}\n\n✍️ *Sende deine Nachricht:*`, {
