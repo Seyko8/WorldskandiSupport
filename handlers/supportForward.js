@@ -1,52 +1,54 @@
-module.exports = async function forwardMessage(ctx, threadId, header = '') {
-  const chatId = ctx.chat.id;
+const { SUPPORT_GROUP_ID } = require('../config');
 
-  if (ctx.message.text) {
-    await ctx.telegram.sendMessage(
-      process.env.SUPPORT_GROUP_ID,
-      `${header}${ctx.message.text}`,
-      {
-        message_thread_id: threadId,
-        parse_mode: 'Markdown'
-      }
-    );
-  } else if (ctx.message.photo) {
-    const photo = ctx.message.photo.pop(); // größte Auflösung
-    await ctx.telegram.sendPhoto(
-      process.env.SUPPORT_GROUP_ID,
-      photo.file_id,
-      {
-        caption: header + (ctx.message.caption || ''),
-        message_thread_id: threadId,
-        parse_mode: 'Markdown'
-      }
-    );
-  } else if (ctx.message.video) {
-    await ctx.telegram.sendVideo(
-      process.env.SUPPORT_GROUP_ID,
-      ctx.message.video.file_id,
-      {
-        caption: header + (ctx.message.caption || ''),
-        message_thread_id: threadId,
-        parse_mode: 'Markdown'
-      }
-    );
-  } else if (ctx.message.voice) {
-    await ctx.telegram.sendVoice(
-      process.env.SUPPORT_GROUP_ID,
-      ctx.message.voice.file_id,
-      {
-        caption: header,
-        message_thread_id: threadId,
-        parse_mode: 'Markdown'
-      }
-    );
-  } else {
-    await ctx.telegram.forwardMessage(
-      process.env.SUPPORT_GROUP_ID,
-      chatId,
-      ctx.message.message_id,
-      { message_thread_id: threadId }
-    );
+async function forwardMessage(ctx, threadId, header = '') {
+  const message = ctx.message;
+
+  const caption = header + (message.caption || message.text || '');
+
+  if (message.photo) {
+    const file = message.photo[message.photo.length - 1].file_id;
+    return ctx.telegram.sendPhoto(SUPPORT_GROUP_ID, file, {
+      caption,
+      parse_mode: 'Markdown',
+      message_thread_id: threadId
+    });
   }
-};
+
+  if (message.video) {
+    return ctx.telegram.sendVideo(SUPPORT_GROUP_ID, message.video.file_id, {
+      caption,
+      parse_mode: 'Markdown',
+      message_thread_id: threadId
+    });
+  }
+
+  if (message.voice) {
+    return ctx.telegram.sendVoice(SUPPORT_GROUP_ID, message.voice.file_id, {
+      caption,
+      parse_mode: 'Markdown',
+      message_thread_id: threadId
+    });
+  }
+
+  if (message.document) {
+    return ctx.telegram.sendDocument(SUPPORT_GROUP_ID, message.document.file_id, {
+      caption,
+      parse_mode: 'Markdown',
+      message_thread_id: threadId
+    });
+  }
+
+  if (message.text) {
+    return ctx.telegram.sendMessage(SUPPORT_GROUP_ID, caption, {
+      parse_mode: 'Markdown',
+      message_thread_id: threadId
+    });
+  }
+
+  // fallback: einfach forwarden
+  return ctx.telegram.forwardMessage(SUPPORT_GROUP_ID, ctx.chat.id, message.message_id, {
+    message_thread_id: threadId
+  });
+}
+
+module.exports = forwardMessage;
