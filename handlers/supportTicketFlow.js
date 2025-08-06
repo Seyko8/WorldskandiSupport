@@ -5,7 +5,7 @@ const isSpam = require('./supportSpamCheck');
 const forwardMessage = require('./supportForward');
 
 function setupTicketFlow(bot) {
-  // === /start zeigt Menü, auch mit offenem Ticket
+  // === /start zeigt Hauptmenü
   bot.start(async (ctx) => {
     const username = ctx.from.username || ctx.from.first_name || 'User';
 
@@ -25,12 +25,8 @@ function setupTicketFlow(bot) {
     });
   });
 
-  // === Supportmenü
+  // === Supportmenü (immer erlaubt)
   bot.action('menu_support', async (ctx) => {
-    if (activeThreads[ctx.from.id]) {
-      return ctx.answerCbQuery('❗ Du hast bereits ein offenes Ticket.', { show_alert: true });
-    }
-
     supportState[ctx.from.id] = { step: 'choose_topic' };
 
     await ctx.editMessageText('📩 *Support starten*\n\nBitte wähle dein Anliegen:', {
@@ -47,7 +43,7 @@ function setupTicketFlow(bot) {
     await ctx.answerCbQuery();
   });
 
-  // === Thema wählen
+  // === Thema auswählen → blockieren bei offenem Ticket
   bot.action(/^support_/, async (ctx) => {
     if (activeThreads[ctx.from.id]) {
       return ctx.answerCbQuery('❗ Du hast bereits ein offenes Ticket.', { show_alert: true });
@@ -73,7 +69,7 @@ function setupTicketFlow(bot) {
     await ctx.answerCbQuery();
   });
 
-  // === User sendet Nachricht oder Medien
+  // === Nachrichten vom User (neues Ticket oder Follow-up)
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
     const username = ctx.from.username || 'unbekannt';
@@ -129,7 +125,7 @@ function setupTicketFlow(bot) {
       return;
     }
 
-    // === Nachricht vom User (offenes Ticket)
+    // === Folge-Nachricht vom User (bei offenem Ticket)
     if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       const forwardText = `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\`\n\n`;
@@ -137,7 +133,7 @@ function setupTicketFlow(bot) {
       return ctx.reply('✅ Nachricht an den Support gesendet.');
     }
 
-    // === Admin antwortet im Thread → Text geht an User
+    // === Admin antwortet im Thread → nur bei Text weiterleiten
     const isThreadReply = ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() && ctx.message.message_thread_id;
     if (isThreadReply) {
       const threadId = ctx.message.message_thread_id;
