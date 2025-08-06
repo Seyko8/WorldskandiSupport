@@ -7,7 +7,7 @@ const forwardMessage = require('./supportForward');
 function setupTicketFlow(bot) {
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
-    const username = ctx.from.username || 'unbekannt';
+    const username = ctx.from.username || 'User';
     const state = supportState[userId];
     const text = ctx.message.text || ctx.message.caption || '';
 
@@ -26,35 +26,37 @@ function setupTicketFlow(bot) {
       const niceTopic = topicMap[state.topic] || 'Support';
 
       try {
-        const header = `🆕 *Support-Anfrage*\n👤 @${username}\n🆔 \`${userId}\`\n📝 Thema: ${niceTopic}\n\n${text}`;
-        const msg = await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, header, {
-          parse_mode: 'Markdown'
-        });
+        const header = `🆕 *Support-Anfrage*\n👤 @${username}\n🆔 \`${userId}\`\n📝 Thema: ${niceTopic}`;
+        const message = ctx.message;
 
-        await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, `👮 Admin-Aktion erforderlich:\n👤 @${username} \`(${userId})\``, {
-          reply_to_message_id: msg.message_id,
+        // In General posten
+        await forwardMessage(ctx, null, header);
+
+        // Admin-Aktion
+        await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, `👮 *Admin-Aktion erforderlich:*`, {
+          parse_mode: 'Markdown',
           reply_markup: Markup.inlineKeyboard([
             [
-              Markup.button.callback('✅ Akzeptieren', `accept_${userId}_${msg.message_id}`),
-              Markup.button.callback('❌ Ablehnen', `deny_${userId}_${msg.message_id}`)
+              Markup.button.callback('✅ Akzeptieren', `accept_${userId}`),
+              Markup.button.callback('❌ Ablehnen', `deny_${userId}`)
             ]
           ])
         });
 
         await ctx.reply('✅ Dein Anliegen wurde weitergeleitet. Ein Admin meldet sich bald.');
       } catch (err) {
-        console.error('❌ Fehler beim Thread:', err);
-        await ctx.reply('⚠️ Fehler beim Erstellen des Tickets.');
+        console.error('❌ Fehler beim Weiterleiten:', err);
+        await ctx.reply('⚠️ Fehler beim Senden deiner Anfrage.');
       }
 
       delete supportState[userId];
       return;
     }
 
-    // Antwort vom User (bei offenem Ticket)
+    // Folge-Nachricht vom User (bei aktivem Thread)
     if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
-      const forwardText = `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\`\n\n${text}`;
+      const forwardText = `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\``;
       await forwardMessage(ctx, threadId, forwardText);
       return ctx.reply('✅ Nachricht an den Support gesendet.');
     }
