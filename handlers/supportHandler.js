@@ -6,6 +6,10 @@ const isSpam = require('../utils/spamFilter');
 
 function supportHandler(bot) {
   bot.action('menu_support', async (ctx) => {
+    if (activeThreads[ctx.from.id]) {
+      return ctx.answerCbQuery('❗ Du hast bereits ein offenes Ticket.', { show_alert: true });
+    }
+
     supportState[ctx.from.id] = { step: 'choose_topic' };
 
     await ctx.editMessageText('📩 *Support starten*\n\nBitte wähle dein Anliegen:', {
@@ -22,6 +26,10 @@ function supportHandler(bot) {
   });
 
   bot.action(/^support_/, async (ctx) => {
+    if (activeThreads[ctx.from.id]) {
+      return ctx.answerCbQuery('❗ Du hast bereits ein offenes Ticket.', { show_alert: true });
+    }
+
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
 
@@ -100,19 +108,19 @@ function supportHandler(bot) {
       return;
     }
 
-    // === Folge-Nachricht (Antwort)
+    // === Folge-Nachricht
     else if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       await forwardMessage(ctx, threadId, `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\`\n\n`);
       return ctx.reply('✅ Nachricht an den Support gesendet.');
     }
 
-    // === Ticket blockiert (kein aktives State, kein aktiver Thread)
+    // === Blockieren, wenn weder noch
     else if (ctx.chat.type === 'private') {
       return ctx.reply('❗ Du hast bereits ein offenes Ticket. Bitte warte auf eine Antwort.');
     }
 
-    // === Admin antwortet im Thread
+    // === Admin antwortet
     if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
@@ -131,7 +139,6 @@ function supportHandler(bot) {
     }
   });
 
-  // === Admin akzeptiert Ticket
   bot.action(/^accept_(\d+)/, async (ctx) => {
     const userId = ctx.match[1];
     try {
@@ -143,7 +150,6 @@ function supportHandler(bot) {
     }
   });
 
-  // === Admin lehnt Ticket ab
   bot.action(/^deny_(\d+)/, async (ctx) => {
     const userId = ctx.match[1];
     try {
@@ -156,7 +162,6 @@ function supportHandler(bot) {
     }
   });
 
-  // === Nachrichten (alle Medientypen)
   async function forwardMessage(ctx, threadId, header) {
     const chatId = SUPPORT_GROUP_ID;
     const caption = header + (ctx.message.caption || ctx.message.text || '');
