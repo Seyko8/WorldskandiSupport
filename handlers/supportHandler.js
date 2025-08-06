@@ -2,10 +2,9 @@ const { Markup } = require('telegraf');
 const { SUPPORT_GROUP_ID } = require('../config');
 const supportState = require('../state/supportState');
 const activeThreads = require('../state/activeThreads');
-const isSpam = require('../utils/spamFilter'); // ✅ Spamfilter eingebunden
+const isSpam = require('../utils/spamFilter');
 
 function supportHandler(bot) {
-  // === Menüpunkt "Support"
   bot.action('menu_support', async (ctx) => {
     supportState[ctx.from.id] = { step: 'choose_topic' };
 
@@ -22,7 +21,6 @@ function supportHandler(bot) {
     await ctx.answerCbQuery();
   });
 
-  // === Thema auswählen
   bot.action(/^support_/, async (ctx) => {
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
@@ -49,7 +47,6 @@ function supportHandler(bot) {
     await ctx.answerCbQuery();
   });
 
-  // === Nachricht vom User
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
     const username = ctx.from.username || 'unbekannt';
@@ -57,7 +54,6 @@ function supportHandler(bot) {
     const getHeader = (topic) =>
       `🆕 *Support-Ticket*\n👤 [@${username}](tg://user?id=${userId})\n🆔 \`${userId}\`\n📝 Thema: ${topic}\n\n`;
 
-    // ❌ Nur 1 Ticket pro User
     if (ctx.chat.type === 'private') {
       if (activeThreads[userId]) {
         return ctx.reply('❗ Du hast bereits ein offenes Ticket. Bitte warte auf eine Antwort.');
@@ -67,7 +63,6 @@ function supportHandler(bot) {
         const state = supportState[userId];
         const text = ctx.message.text?.toLowerCase() || ctx.message.caption?.toLowerCase() || '';
 
-        // ✅ Spam-Check
         if (isSpam(text)) {
           return ctx.reply('⚠️ Bitte stelle eine konkrete Support-Anfrage. Fragen wie „wann ist Gruppe offen?“ sind nicht erlaubt.');
         }
@@ -89,7 +84,6 @@ function supportHandler(bot) {
 
           await forwardMessage(ctx, threadId, getHeader(topic));
 
-          // ✅ Richtige Buttons senden
           await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, '👮 Admin-Aktion erforderlich:', {
             message_thread_id: threadId,
             reply_markup: Markup.inlineKeyboard([
@@ -111,14 +105,12 @@ function supportHandler(bot) {
       }
     }
 
-    // Folge-Nachricht
     if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       await forwardMessage(ctx, threadId, `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\`\n\n`);
       return ctx.reply('✅ Nachricht an den Support gesendet.');
     }
 
-    // Admin antwortet → Bot leitet weiter
     if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
@@ -137,7 +129,7 @@ function supportHandler(bot) {
     }
   });
 
-  // === Admin akzeptiert Ticket
+  // ✅ Akzeptieren (NICHT löschen!)
   bot.action(/^accept_(\d+)/, async (ctx) => {
     const userId = ctx.match[1];
     try {
@@ -149,7 +141,7 @@ function supportHandler(bot) {
     }
   });
 
-  // === Admin lehnt Ticket ab
+  // ❌ Ablehnen (löscht den Thread-Zugriff)
   bot.action(/^deny_(\d+)/, async (ctx) => {
     const userId = ctx.match[1];
     try {
@@ -162,7 +154,6 @@ function supportHandler(bot) {
     }
   });
 
-  // === Weiterleitung von Nachrichten (alle Medien)
   async function forwardMessage(ctx, threadId, header) {
     const chatId = SUPPORT_GROUP_ID;
     const caption = header + (ctx.message.caption || ctx.message.text || '');
