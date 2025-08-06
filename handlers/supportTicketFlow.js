@@ -1,10 +1,26 @@
 const { Markup } = require('telegraf');
 const { SUPPORT_GROUP_ID } = require('../config');
 const { activeThreads } = require('./supportState');
-const isSpam = require('../utils/spamFilter');
+const isSpam = require('./supportSpamCheck');
 const forwardMessage = require('./supportForward');
 
 function setupTicketFlow(bot, supportState) {
+  // === /start zeigt Hauptmenü ===
+  bot.start(async (ctx) => {
+    if (activeThreads[ctx.from.id]) {
+      return ctx.reply('❗ Du hast bereits ein offenes Ticket. Bitte warte auf eine Antwort.');
+    }
+
+    await ctx.reply('👋 *Willkommen beim Worldskandi Support-Bot!*\n\nBitte wähle eine Option:', {
+      parse_mode: 'Markdown',
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback('📂 FAQ', 'menu_faq'), Markup.button.callback('🔗 Links', 'menu_links')],
+        [Markup.button.callback('🛠️ Support', 'menu_support'), Markup.button.callback('🆕 News', 'menu_news')]
+      ])
+    });
+  });
+
+  // === Thema auswählen ===
   bot.action('menu_support', async (ctx) => {
     if (activeThreads[ctx.from.id]) {
       return ctx.answerCbQuery('❗ Du hast bereits ein offenes Ticket.', { show_alert: true });
@@ -87,7 +103,7 @@ function setupTicketFlow(bot, supportState) {
           ]).reply_markup
         });
 
-        // Fester Button sichtbar im Thread
+        // Extra Abschluss-Button
         await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, '🛑 *Support-Ticket beenden?*', {
           message_thread_id: threadId,
           parse_mode: 'Markdown',
