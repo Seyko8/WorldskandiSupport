@@ -1,11 +1,11 @@
 const { Markup } = require('telegraf');
 const { SUPPORT_GROUP_ID } = require('../config');
-const { activeThreads } = require('./supportState');
+const { supportState, activeThreads } = require('./supportState');
 const isSpam = require('./supportSpamCheck');
 const forwardMessage = require('./supportForward');
 
-function setupTicketFlow(bot, supportState) {
-  // === /start-Menü mit Buttons + Username ===
+function setupTicketFlow(bot) {
+  // === START-Menü
   bot.start(async (ctx) => {
     const username = ctx.from.username || ctx.from.first_name || 'User';
 
@@ -30,7 +30,7 @@ function setupTicketFlow(bot, supportState) {
     });
   });
 
-  // === Support-Start-Menü ===
+  // === Support-Menü aufrufen
   bot.action('menu_support', async (ctx) => {
     if (activeThreads[ctx.from.id]) {
       return ctx.answerCbQuery('❗ Du hast bereits ein offenes Ticket.', { show_alert: true });
@@ -45,13 +45,14 @@ function setupTicketFlow(bot, supportState) {
         [Markup.button.callback('💰 Payment / Forward Chat', 'support_payment')],
         [Markup.button.callback('🛠️ Technisches Problem', 'support_tech')],
         [Markup.button.callback('📝 Sonstiges', 'support_other')],
-        [Markup.button.callback('🔙 Zurück', 'menu_back')]
+        [Markup.button.callback('🔙 Zurück', 'start')]
       ]).reply_markup
     });
+
     await ctx.answerCbQuery();
   });
 
-  // === Thema wählen ===
+  // === Thema auswählen
   bot.action(/^support_/, async (ctx) => {
     if (activeThreads[ctx.from.id]) {
       return ctx.answerCbQuery('❗ Du hast bereits ein offenes Ticket.', { show_alert: true });
@@ -60,14 +61,14 @@ function setupTicketFlow(bot, supportState) {
     const topic = ctx.match.input.replace('support_', '');
     supportState[ctx.from.id] = { step: 'waiting_message', topic };
 
-    const topics = {
+    const topicText = {
       vip: '📦 *VIP-Zugang*\n\n❗ Bitte sende Chatnachweis + Kaufbeleg (E-Mail).',
       payment: '💰 *Payment / Forward Chat*\n\n⚠️ Nach Sperrung gibt’s neuen Link nach 1 Woche.',
       tech: '🛠 *Technisches Problem*\n\nProbleme mit Gruppen oder Beiträgen? Schreib uns.',
-      other: '📝 *Sonstiges*\n\nSchreib dein Anliegen hier – keine Öffnungsfragen.'
+      other: '📝 *Sonstiges*\n\nBitte keine „wann öffnet“-Fragen.'
     };
 
-    await ctx.editMessageText(`${topics[topic]}\n\n✍️ *Sende deine Nachricht:*`, {
+    await ctx.editMessageText(`${topicText[topic]}\n\n✍️ *Sende deine Nachricht:*`, {
       parse_mode: 'Markdown',
       reply_markup: Markup.inlineKeyboard([
         [Markup.button.callback('🔙 Zurück', 'menu_support')]
@@ -77,14 +78,15 @@ function setupTicketFlow(bot, supportState) {
     await ctx.answerCbQuery();
   });
 
-  // === Nachrichten-Handler ===
+  // === Nachricht vom User (Text, Foto, Video, usw.)
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
     const username = ctx.from.username || 'unbekannt';
 
-    // === Neues Ticket
+    // === Neues Ticket starten
     if (ctx.chat.type === 'private' && supportState[userId]?.step === 'waiting_message') {
-      const text = ctx.message.text?.toLowerCase() || ctx.message.caption?.toLowerCase() || '';
+      const text = ctx.message.text || ctx.message.caption || '';
+
       if (isSpam(text)) {
         return ctx.reply('⚠️ Bitte stelle eine konkrete Support-Anfrage. Fragen wie „wann ist Gruppe offen?“ sind nicht erlaubt.');
       }
@@ -95,11 +97,11 @@ function setupTicketFlow(bot, supportState) {
         tech: '🛠️ Technisches Problem',
         other: '📝 Sonstiges'
       };
-      const topic = topicMap[supportState[userId].topic] || 'Support';
-      const header = `🆕 *Support-Ticket*\n👤 [@${username}](tg://user?id=${userId})\n🆔 \`${userId}\`\n📝 Thema: ${topic}\n\n`;
+      const topicLabel = topicMap[supportState[userId].topic] || 'Support';
+      const header = `🆕 *Support-Ticket*\n👤 [@${username}](tg://user?id=${userId})\n🆔 \`${userId}\`\n📝 Thema: ${topicLabel}\n\n`;
 
       try {
-        const thread = await ctx.telegram.createForumTopic(SUPPORT_GROUP_ID, `${topic} – @${username}`);
+        const thread = await ctx.telegram.createForumTopic(SUPPORT_GROUP_ID, `${topicLabel} – @${username}`);
         const threadId = thread.message_thread_id;
         activeThreads[userId] = threadId;
 
@@ -133,15 +135,16 @@ function setupTicketFlow(bot, supportState) {
       return;
     }
 
-    // === Antwort vom User (zweite Nachricht)
+    // === Folge-Nachricht vom User (Ticket offen)
     else if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       const forwardText = `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\`\n\n`;
+
       await forwardMessage(ctx, threadId, forwardText);
       return ctx.reply('✅ Nachricht an den Support gesendet.');
     }
 
-    // === Fallback
+    // === Kein Ticket erlaubt
     else if (ctx.chat.type === 'private') {
       return ctx.reply('❗ Du hast bereits ein offenes Ticket. Bitte warte auf eine Antwort.');
     }
