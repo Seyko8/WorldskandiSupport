@@ -5,12 +5,9 @@ const isSpam = require('./supportSpamCheck');
 const forwardMessage = require('./supportForward');
 
 function setupTicketFlow(bot) {
-  // === /start
+  // === /start zeigt Menü, auch mit offenem Ticket
   bot.start(async (ctx) => {
     const username = ctx.from.username || ctx.from.first_name || 'User';
-    if (activeThreads[ctx.from.id]) {
-      return ctx.reply('❗ Du hast bereits ein offenes Ticket. Bitte warte auf eine Antwort.');
-    }
 
     await ctx.telegram.sendMessage(ctx.chat.id, `👋 Willkommen @${username} beim Worldskandi Support-Bot!\n\nBitte wähle eine Option:`, {
       reply_markup: {
@@ -46,6 +43,7 @@ function setupTicketFlow(bot) {
         [Markup.button.callback('🔙 Zurück', 'start')]
       ]).reply_markup
     });
+
     await ctx.answerCbQuery();
   });
 
@@ -75,14 +73,14 @@ function setupTicketFlow(bot) {
     await ctx.answerCbQuery();
   });
 
-  // === Nutzer sendet Nachricht
+  // === User sendet Nachricht oder Medien
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
     const username = ctx.from.username || 'unbekannt';
     const state = supportState[userId];
     const text = ctx.message.text || ctx.message.caption || '';
 
-    // === Neues Ticket
+    // === Neues Ticket erstellen
     if (ctx.chat.type === 'private' && state?.step === 'waiting_message') {
       if (isSpam(text)) {
         return ctx.reply('⚠️ Bitte stelle eine echte Support-Frage. Kein Spam erlaubt.');
@@ -104,7 +102,6 @@ function setupTicketFlow(bot) {
         const header = `🆕 *Support-Ticket*\n👤 [@${username}](tg://user?id=${userId})\n🆔 \`${userId}\`\n📝 Thema: ${niceTopic}\n\n`;
         await forwardMessage(ctx, threadId, header);
 
-        // Admin-Buttons
         await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, '👮 Admin-Aktion erforderlich:', {
           message_thread_id: threadId,
           reply_markup: Markup.inlineKeyboard([
@@ -115,7 +112,6 @@ function setupTicketFlow(bot) {
           ]).reply_markup
         });
 
-        // Ticket schließen
         await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, '🛑 Ticket abschließen?', {
           message_thread_id: threadId,
           reply_markup: Markup.inlineKeyboard([
@@ -133,7 +129,7 @@ function setupTicketFlow(bot) {
       return;
     }
 
-    // === Folge-Nachricht vom User (Ticket offen)
+    // === Nachricht vom User (offenes Ticket)
     if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       const forwardText = `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\`\n\n`;
@@ -141,21 +137,20 @@ function setupTicketFlow(bot) {
       return ctx.reply('✅ Nachricht an den Support gesendet.');
     }
 
-    // === Admin antwortet im Thread
+    // === Admin antwortet im Thread → Text geht an User
     const isThreadReply = ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() && ctx.message.message_thread_id;
     if (isThreadReply) {
       const threadId = ctx.message.message_thread_id;
       const userIdFromThread = Object.entries(activeThreads).find(([uid, tid]) => tid === threadId)?.[0];
       if (!userIdFromThread) return;
 
-      const replyText = ctx.message.text
-        ? `📩 *Antwort vom Worldskandi Team*\n\n💬 ${ctx.message.text}`
-        : '📩 *Antwort vom Worldskandi Team*\n\n📎 Datei empfangen';
-
-      try {
-        await ctx.telegram.sendMessage(userIdFromThread, replyText, { parse_mode: 'Markdown' });
-      } catch (err) {
-        console.error('❌ Fehler bei Antwort an User:', err.message);
+      if (ctx.message.text) {
+        const replyText = `📩 *Antwort vom Worldskandi Team*\n\n💬 ${ctx.message.text}`;
+        try {
+          await ctx.telegram.sendMessage(userIdFromThread, replyText, { parse_mode: 'Markdown' });
+        } catch (err) {
+          console.error('❌ Fehler bei Antwort an User:', err.message);
+        }
       }
     }
   });
