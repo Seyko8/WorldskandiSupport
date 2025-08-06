@@ -6,8 +6,8 @@ function setupMenu(bot) {
       `2️⃣ Was kostet VIP?\n💸 Einmalig 50 € oder 100 € – kein Abo.\n\n` +
       `3️⃣ Wie erhalte ich Zugang?\n📨 Nach der Zahlung bekommst du sofort den Link.\n\n` +
       `4️⃣ Was bringt mir der Forward-Chat?\n📡 Beiträge direkt aus der Hauptgruppe im privaten Kanal.\n\n` +
-      `5️⃣ Öffnungszeiten?\n🕒 Keine festen Zeiten – Infos hier:\nhttps://t.me/+pgbomQsLFZNlOGZi\n\n` +
-      `6️⃣ Gruppenübersicht:\n📋 https://t.me/WorldskandiNavi`;
+      `5️⃣ Öffnungszeiten?\n🕒 Keine festen Zeiten – Infos: https://t.me/+pgbomQsLFZNlOGZi\n\n` +
+      `6️⃣ Gruppenübersicht: https://t.me/WorldskandiNavi`;
 
     await ctx.editMessageText(text, {
       disable_web_page_preview: true,
@@ -17,25 +17,27 @@ function setupMenu(bot) {
     });
   });
 
-  // === LINKS (OHNE Markdown – STABIL)
+  // === LINKS (mit Buttons!)
   bot.action('menu_links', async (ctx) => {
-    const text = `🔗 Wichtige Links:\n\n` +
-      `📸 Instagram: https://instagram.com/offiziell.worldskandi\n` +
-      `👻 Snapchat: https://www.snapchat.com/@offiziellwsk\n` +
-      `🎥 Velvet: https://t.me/VelvetGlobal\n` +
-      `🔞 Skandi: https://t.me/+h_SoVDxZc1lhZjRh\n` +
-      `💾 Speicher: https://t.me/+Be0bO9BWhHk1ZWU0\n\n` +
-      `📋 Beitrittsliste: https://t.me/addlist/ztczKNjf1LNjMzFk`;
+    const text = '🔗 *Wichtige Links:*';
 
     await ctx.editMessageText(text, {
-      disable_web_page_preview: true,
+      parse_mode: 'Markdown',
       reply_markup: {
-        inline_keyboard: [[{ text: '🔙 Zurück', callback_data: 'start' }]]
+        inline_keyboard: [
+          [{ text: '📸 Instagram', url: 'https://instagram.com/offiziell.worldskandi' }],
+          [{ text: '👻 Snapchat', url: 'https://www.snapchat.com/@offiziellwsk' }],
+          [{ text: '🎥 Velvet', url: 'https://t.me/VelvetGlobal' }],
+          [{ text: '🔞 Skandi', url: 'https://t.me/+h_SoVDxZc1lhZjRh' }],
+          [{ text: '💾 Speicher-Kanal', url: 'https://t.me/+Be0bO9BWhHk1ZWU0' }],
+          [{ text: '✉️ In alle Gruppen rein', url: 'https://t.me/addlist/ztczKNjf1LNjMzFk' }],
+          [{ text: '🔙 Zurück', callback_data: 'start' }]
+        ]
       }
     });
   });
 
-  // === NEWS
+  // === NEWS (optional)
   bot.action('menu_news', async (ctx) => {
     await ctx.editMessageText('🆕 Es gibt aktuell keine neuen Ankündigungen.', {
       reply_markup: {
@@ -44,7 +46,7 @@ function setupMenu(bot) {
     });
   });
 
-  // === ZURÜCK INS MENÜ
+  // === START-MENÜ
   bot.action('start', async (ctx) => {
     const username = ctx.from.username || ctx.from.first_name || 'User';
 
