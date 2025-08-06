@@ -62,7 +62,6 @@ function supportHandler(bot) {
     const getHeader = (topic) =>
       `🆕 *Support-Ticket*\n👤 [@${username}](tg://user?id=${userId})\n🆔 \`${userId}\`\n📝 Thema: ${topic}\n\n`;
 
-    // === Neues Ticket
     if (ctx.chat.type === 'private' && supportState[userId]?.step === 'waiting_message') {
       const state = supportState[userId];
       const text = ctx.message.text?.toLowerCase() || ctx.message.caption?.toLowerCase() || '';
@@ -94,6 +93,9 @@ function supportHandler(bot) {
             [
               Markup.button.callback('✅ Akzeptieren', `accept_${userId}`),
               Markup.button.callback('❌ Ablehnen', `deny_${userId}`)
+            ],
+            [
+              Markup.button.callback('✅ Ticket abschließen', `close_${userId}`)
             ]
           ]).reply_markup
         });
@@ -108,19 +110,16 @@ function supportHandler(bot) {
       return;
     }
 
-    // === Folge-Nachricht
     else if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       await forwardMessage(ctx, threadId, `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\`\n\n`);
       return ctx.reply('✅ Nachricht an den Support gesendet.');
     }
 
-    // === Blockieren, wenn weder noch
     else if (ctx.chat.type === 'private') {
       return ctx.reply('❗ Du hast bereits ein offenes Ticket. Bitte warte auf eine Antwort.');
     }
 
-    // === Admin antwortet
     if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
@@ -159,6 +158,19 @@ function supportHandler(bot) {
       await ctx.answerCbQuery('Ticket abgelehnt.');
     } catch (err) {
       console.error('❌ Fehler bei Ablehnen:', err);
+    }
+  });
+
+  bot.action(/^close_(\d+)/, async (ctx) => {
+    const userId = ctx.match[1];
+    try {
+      delete activeThreads[userId];
+
+      await ctx.telegram.sendMessage(userId, '🎉 Dein Ticket wurde erfolgreich abgeschlossen. Du kannst nun wieder ein neues erstellen.');
+      await ctx.editMessageReplyMarkup();
+      await ctx.answerCbQuery('Ticket wurde geschlossen ✅');
+    } catch (err) {
+      console.error('❌ Fehler beim Abschließen:', err);
     }
   });
 
