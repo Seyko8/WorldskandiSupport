@@ -54,63 +54,65 @@ function supportHandler(bot) {
     const getHeader = (topic) =>
       `🆕 *Support-Ticket*\n👤 [@${username}](tg://user?id=${userId})\n🆔 \`${userId}\`\n📝 Thema: ${topic}\n\n`;
 
-    if (ctx.chat.type === 'private') {
-      if (activeThreads[userId]) {
-        return ctx.reply('❗ Du hast bereits ein offenes Ticket. Bitte warte auf eine Antwort.');
+    // === Neues Ticket
+    if (ctx.chat.type === 'private' && supportState[userId]?.step === 'waiting_message') {
+      const state = supportState[userId];
+      const text = ctx.message.text?.toLowerCase() || ctx.message.caption?.toLowerCase() || '';
+
+      if (isSpam(text)) {
+        return ctx.reply('⚠️ Bitte stelle eine konkrete Support-Anfrage. Fragen wie „wann ist Gruppe offen?“ sind nicht erlaubt.');
       }
 
-      if (supportState[userId]?.step === 'waiting_message') {
-        const state = supportState[userId];
-        const text = ctx.message.text?.toLowerCase() || ctx.message.caption?.toLowerCase() || '';
+      const topicMap = {
+        vip: '📦 VIP-Zugang',
+        payment: '💰 Payment / Forward Chat',
+        tech: '🛠️ Technisches Problem',
+        other: '📝 Sonstiges'
+      };
+      const topic = topicMap[state.topic] || state.topic;
 
-        if (isSpam(text)) {
-          return ctx.reply('⚠️ Bitte stelle eine konkrete Support-Anfrage. Fragen wie „wann ist Gruppe offen?“ sind nicht erlaubt.');
-        }
+      try {
+        const title = `${topic} – @${username}`;
+        const thread = await ctx.telegram.createForumTopic(SUPPORT_GROUP_ID, title);
+        const threadId = thread.message_thread_id;
 
-        const topicMap = {
-          vip: '📦 VIP-Zugang',
-          payment: '💰 Payment / Forward Chat',
-          tech: '🛠️ Technisches Problem',
-          other: '📝 Sonstiges'
-        };
-        const topic = topicMap[state.topic] || state.topic;
+        activeThreads[userId] = threadId;
 
-        try {
-          const title = `${topic} – @${username}`;
-          const thread = await ctx.telegram.createForumTopic(SUPPORT_GROUP_ID, title);
-          const threadId = thread.message_thread_id;
+        await forwardMessage(ctx, threadId, getHeader(topic));
 
-          activeThreads[userId] = threadId;
+        await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, '👮 Admin-Aktion erforderlich:', {
+          message_thread_id: threadId,
+          reply_markup: Markup.inlineKeyboard([
+            [
+              Markup.button.callback('✅ Akzeptieren', `accept_${userId}`),
+              Markup.button.callback('❌ Ablehnen', `deny_${userId}`)
+            ]
+          ]).reply_markup
+        });
 
-          await forwardMessage(ctx, threadId, getHeader(topic));
-
-          await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, '👮 Admin-Aktion erforderlich:', {
-            message_thread_id: threadId,
-            reply_markup: Markup.inlineKeyboard([
-              [
-                Markup.button.callback('✅ Akzeptieren', `accept_${userId}`),
-                Markup.button.callback('❌ Ablehnen', `deny_${userId}`)
-              ]
-            ]).reply_markup
-          });
-
-          await ctx.reply('✅ Dein Anliegen wurde weitergeleitet. Ein Admin meldet sich bald.');
-        } catch (err) {
-          console.error('❌ Thread-Fehler:', err);
-          await ctx.reply('⚠️ Fehler beim Erstellen deines Tickets.');
-        }
-
-        delete supportState[userId];
-        return;
+        await ctx.reply('✅ Dein Anliegen wurde weitergeleitet. Ein Admin meldet sich bald.');
+      } catch (err) {
+        console.error('❌ Thread-Fehler:', err);
+        await ctx.reply('⚠️ Fehler beim Erstellen deines Tickets.');
       }
+
+      delete supportState[userId];
+      return;
     }
 
-    if (ctx.chat.type === 'private' && activeThreads[userId]) {
+    // === Folge-Nachricht (Antwort)
+    else if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       await forwardMessage(ctx, threadId, `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\`\n\n`);
       return ctx.reply('✅ Nachricht an den Support gesendet.');
     }
 
+    // === Ticket blockiert (kein aktives State, kein aktiver Thread)
+    else if (ctx.chat.type === 'private') {
+      return ctx.reply('❗ Du hast bereits ein offenes Ticket. Bitte warte auf eine Antwort.');
+    }
+
+    // === Admin antwortet im Thread
     if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
@@ -129,7 +131,7 @@ function supportHandler(bot) {
     }
   });
 
-  // ✅ Akzeptieren (NICHT löschen!)
+  // === Admin akzeptiert Ticket
   bot.action(/^accept_(\d+)/, async (ctx) => {
     const userId = ctx.match[1];
     try {
@@ -141,7 +143,7 @@ function supportHandler(bot) {
     }
   });
 
-  // ❌ Ablehnen (löscht den Thread-Zugriff)
+  // === Admin lehnt Ticket ab
   bot.action(/^deny_(\d+)/, async (ctx) => {
     const userId = ctx.match[1];
     try {
@@ -154,6 +156,7 @@ function supportHandler(bot) {
     }
   });
 
+  // === Nachrichten (alle Medientypen)
   async function forwardMessage(ctx, threadId, header) {
     const chatId = SUPPORT_GROUP_ID;
     const caption = header + (ctx.message.caption || ctx.message.text || '');
