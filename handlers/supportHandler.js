@@ -2,10 +2,10 @@ const setupTicketFlow = require('./supportTicketFlow');
 const setupAdminActions = require('./supportAdminActions');
 const setupMenu = require('./menuHandler');
 
-function registerSupport(bot) {
+function supportHandler(bot) {
   setupMenu(bot);
   setupTicketFlow(bot);
   setupAdminActions(bot);
 }
 
-module.exports = { registerSupport };
+module.exports = supportHandler;
