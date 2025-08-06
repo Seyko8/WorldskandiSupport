@@ -2,9 +2,10 @@ const { Markup } = require('telegraf');
 const { SUPPORT_GROUP_ID } = require('../config');
 const supportState = require('../state/supportState');
 const activeThreads = require('../state/activeThreads');
+const isSpam = require('../utils/spamFilter'); // ✅ Spamfilter eingebunden
 
 function supportHandler(bot) {
-  // === Menü Support
+  // === Menüpunkt "Support"
   bot.action('menu_support', async (ctx) => {
     supportState[ctx.from.id] = { step: 'choose_topic' };
 
@@ -21,7 +22,7 @@ function supportHandler(bot) {
     await ctx.answerCbQuery();
   });
 
-  // === Kategorie auswählen
+  // === Thema auswählen
   bot.action(/^support_/, async (ctx) => {
     const topic = ctx.match.input.replace('support_', '');
     const userId = ctx.from.id;
@@ -64,6 +65,13 @@ function supportHandler(bot) {
 
       if (supportState[userId]?.step === 'waiting_message') {
         const state = supportState[userId];
+        const text = ctx.message.text?.toLowerCase() || ctx.message.caption?.toLowerCase() || '';
+
+        // ✅ Spam-Check
+        if (isSpam(text)) {
+          return ctx.reply('⚠️ Bitte stelle eine konkrete Support-Anfrage. Fragen wie „wann ist Gruppe offen?“ sind nicht erlaubt.');
+        }
+
         const topicMap = {
           vip: '📦 VIP-Zugang',
           payment: '💰 Payment / Forward Chat',
@@ -79,7 +87,6 @@ function supportHandler(bot) {
 
           activeThreads[userId] = threadId;
 
-          // Nachricht + Admin-Buttons
           await forwardMessage(ctx, threadId, getHeader(topic));
 
           await ctx.telegram.sendMessage(SUPPORT_GROUP_ID,
@@ -104,14 +111,14 @@ function supportHandler(bot) {
       }
     }
 
-    // Folge-Nachricht → Thread
+    // Folge-Nachricht
     if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       await forwardMessage(ctx, threadId, `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\`\n\n`);
       return ctx.reply('✅ Nachricht an den Support gesendet.');
     }
 
-    // Admin antwortet → Bot leitet an User
+    // Admin antwortet → Bot leitet weiter
     if (
       ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() &&
       ctx.message.message_thread_id &&
@@ -125,37 +132,37 @@ function supportHandler(bot) {
       try {
         await ctx.telegram.sendMessage(userId, text, { parse_mode: 'Markdown' });
       } catch (err) {
-        console.error('❌ Antwortfehler:', err.description || err.message);
+        console.error('❌ Fehler bei Antwort:', err);
       }
     }
   });
 
-  // === Admin-Button: Akzeptieren
+  // === Admin akzeptiert Ticket
   bot.action(/^accept_(\d+)/, async (ctx) => {
     const userId = ctx.match[1];
     try {
       await ctx.telegram.sendMessage(userId, '✅ Ein Admin kümmert sich gleich um dein Anliegen.');
-      await ctx.editMessageReplyMarkup(); // Buttons ausblenden
+      await ctx.editMessageReplyMarkup();
       await ctx.answerCbQuery('Ticket akzeptiert.');
     } catch (err) {
       console.error('❌ Fehler bei Akzeptieren:', err);
     }
   });
 
-  // === Admin-Button: Ablehnen
+  // === Admin lehnt Ticket ab
   bot.action(/^deny_(\d+)/, async (ctx) => {
     const userId = ctx.match[1];
     try {
       await ctx.telegram.sendMessage(userId, '❌ Deine Support-Anfrage wurde abgelehnt.');
       delete activeThreads[userId];
-      await ctx.editMessageReplyMarkup(); // Buttons ausblenden
+      await ctx.editMessageReplyMarkup();
       await ctx.answerCbQuery('Ticket abgelehnt.');
     } catch (err) {
       console.error('❌ Fehler bei Ablehnen:', err);
     }
   });
 
-  // === Nachricht/Media an Thread senden
+  // === Weiterleitung von Nachrichten (alle Medien)
   async function forwardMessage(ctx, threadId, header) {
     const chatId = SUPPORT_GROUP_ID;
     const caption = header + (ctx.message.caption || ctx.message.text || '');
