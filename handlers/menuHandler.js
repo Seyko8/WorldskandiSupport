@@ -24,9 +24,7 @@ function setupMenu(bot) {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
       reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔙 Zurück', callback_data: 'start' }]
-        ]
+        inline_keyboard: [[{ text: '🔙 Zurück', callback_data: 'start' }]]
       }
     });
   });
@@ -45,9 +43,7 @@ function setupMenu(bot) {
       parse_mode: 'Markdown',
       disable_web_page_preview: true,
       reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔙 Zurück', callback_data: 'start' }]
-        ]
+        inline_keyboard: [[{ text: '🔙 Zurück', callback_data: 'start' }]]
       }
     });
   });
@@ -56,14 +52,12 @@ function setupMenu(bot) {
   bot.action('menu_news', async (ctx) => {
     await ctx.editMessageText('🆕 Es gibt aktuell keine neuen Ankündigungen.', {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔙 Zurück', callback_data: 'start' }]
-        ]
+        inline_keyboard: [[{ text: '🔙 Zurück', callback_data: 'start' }]]
       }
     });
   });
 
-  // === Support-Zurück Button (fix) ===
+  // === Support-Zurück Button (Repariert) ===
   bot.action('menu_back', async (ctx) => {
     const username = ctx.from.username || ctx.from.first_name || 'User';
     await ctx.editMessageText(`👋 Willkommen @${username} beim *Worldskandi Support-Bot!*\n\nBitte wähle eine Option:`, {
@@ -75,4 +69,34 @@ function setupMenu(bot) {
             { text: '🔗 Links', callback_data: 'menu_links' }
           ],
           [
-            { text: '🛠️ Support', callback_data:
+            { text: '🛠️ Support', callback_data: 'menu_support' },
+            { text: '🆕 News', callback_data: 'menu_news' }
+          ]
+        ]
+      }
+    });
+    await ctx.answerCbQuery();
+  });
+
+  // === Start-Menü (auch für Zurück von FAQ/Links/News) ===
+  bot.action('start', async (ctx) => {
+    const username = ctx.from.username || ctx.from.first_name || 'User';
+    await ctx.editMessageText(`👋 Willkommen @${username} beim *Worldskandi Support-Bot!*\n\nBitte wähle eine Option:`, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '📂 FAQ', callback_data: 'menu_faq' },
+            { text: '🔗 Links', callback_data: 'menu_links' }
+          ],
+          [
+            { text: '🛠️ Support', callback_data: 'menu_support' },
+            { text: '🆕 News', callback_data: 'menu_news' }
+          ]
+        ]
+      }
+    });
+  });
+}
+
+module.exports = setupMenu;
