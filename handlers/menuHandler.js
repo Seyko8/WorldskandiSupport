@@ -1,9 +1,11 @@
 const { Markup } = require('telegraf');
+const { supportState } = require('./supportState');
 
 function setupMenu(bot) {
-  // /start Befehl
+  // === /start zeigt Hauptmenü
   bot.start(async (ctx) => {
     const username = ctx.from.username || ctx.from.first_name || 'User';
+
     await ctx.telegram.sendMessage(ctx.chat.id, `👋 Willkommen @${username} beim Worldskandi Support-Bot!\n\nBitte wähle eine Option:`, {
       reply_markup: {
         inline_keyboard: [
@@ -20,7 +22,25 @@ function setupMenu(bot) {
     });
   });
 
-  // FAQ anzeigen
+  // === Supportmenü anzeigen
+  bot.action('menu_support', async (ctx) => {
+    supportState[ctx.from.id] = { step: 'choose_topic' };
+
+    await ctx.editMessageText('📩 *Support starten*\n\nBitte wähle dein Anliegen:', {
+      parse_mode: 'Markdown',
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback('📦 VIP-Zugang', 'support_vip')],
+        [Markup.button.callback('💰 Payment / Forward Chat', 'support_payment')],
+        [Markup.button.callback('🛠️ Technisches Problem', 'support_tech')],
+        [Markup.button.callback('📝 Sonstiges', 'support_other')],
+        [Markup.button.callback('🔙 Zurück', 'start')]
+      ])
+    });
+
+    await ctx.answerCbQuery();
+  });
+
+  // === FAQ
   bot.action('menu_faq', async (ctx) => {
     const text = `📂 *Häufige Fragen (FAQ)*\n\n` +
       `1️⃣ Wie bekomme ich VIP?\n👉 Über unseren VIP-Bot: @WSkandiVipBot\n\n` +
@@ -40,7 +60,7 @@ function setupMenu(bot) {
     });
   });
 
-  // Links anzeigen
+  // === Links
   bot.action('menu_links', async (ctx) => {
     const text = '🔗 *Wichtige Links:*';
 
@@ -60,7 +80,7 @@ function setupMenu(bot) {
     });
   });
 
-  // News
+  // === News
   bot.action('menu_news', async (ctx) => {
     await ctx.editMessageText('🆕 Es gibt aktuell keine neuen Ankündigungen.', {
       reply_markup: {
@@ -69,9 +89,10 @@ function setupMenu(bot) {
     });
   });
 
-  // Start-Button (für Zurück)
+  // === Zurück zu Start
   bot.action('start', async (ctx) => {
     const username = ctx.from.username || ctx.from.first_name || 'User';
+
     await ctx.editMessageText(`👋 Willkommen @${username} beim Worldskandi Support-Bot!\n\nBitte wähle eine Option:`, {
       reply_markup: {
         inline_keyboard: [
