@@ -1,9 +1,14 @@
 const { Markup } = require('telegraf');
+const { SUPPORT_GROUP_ID } = require('../config');
+const { supportState, activeThreads } = require('./supportState');
+const isSpam = require('./supportSpamCheck');
+const forwardMessage = require('./supportForward');
 
-function setupMenu(bot) {
-  // /start Befehl
+function setupTicketFlow(bot) {
+  // === /start zeigt Hauptmenü
   bot.start(async (ctx) => {
     const username = ctx.from.username || ctx.from.first_name || 'User';
+
     await ctx.telegram.sendMessage(ctx.chat.id, `👋 Willkommen @${username} beim Worldskandi Support-Bot!\n\nBitte wähle eine Option:`, {
       reply_markup: {
         inline_keyboard: [
@@ -20,73 +25,131 @@ function setupMenu(bot) {
     });
   });
 
-  // FAQ anzeigen
-  bot.action('menu_faq', async (ctx) => {
-    const text = `📂 *Häufige Fragen (FAQ)*\n\n` +
-      `1️⃣ Wie bekomme ich VIP?\n👉 Über unseren VIP-Bot: @WSkandiVipBot\n\n` +
-      `2️⃣ Was kostet VIP?\n💸 Einmalig 50 € oder 100 € – kein Abo.\n\n` +
-      `3️⃣ Wie erhalte ich Zugang?\n📨 Nach der Zahlung bekommst du sofort den Link.\n\n` +
-      `4️⃣ Was bringt mir der Forward-Chat?\n📡 Du erhältst alle Beiträge aus der Hauptgruppe direkt in einem privaten Kanal.\n\n` +
-      `5️⃣ Welche Gruppe öffnet?\n🕒 Wir haben keine festen „Öffnungszeiten“. Halte die Gruppe [im Blick](https://t.me/+PaDv9IeSOSw3Njgy) – dort bekommst du vor jeder Öffnung eine Nachricht.\n\n` +
-      `6️⃣ Welche Gruppen gibt es?\n📋 Eine Übersicht aller Gruppen findest du [hier](https://t.me/Worldskandinavi)\n\n` +
-      `7️⃣ Wodurch kann ich gebannt werden?\n🚫 Das Regelwerk gilt für alle User. Bei Unsicherheit → Admin fragen.`;
+  // === Supportmenü (immer erlaubt)
+  bot.action('menu_support', async (ctx) => {
+    supportState[ctx.from.id] = { step: 'choose_topic' };
 
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText('📩 *Support starten*\n\nBitte wähle dein Anliegen:', {
       parse_mode: 'Markdown',
-      disable_web_page_preview: true,
-      reply_markup: {
-        inline_keyboard: [[{ text: '🔙 Zurück', callback_data: 'start' }]]
-      }
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback('📦 VIP-Zugang', 'support_vip')],
+        [Markup.button.callback('💰 Payment / Forward Chat', 'support_payment')],
+        [Markup.button.callback('🛠️ Technisches Problem', 'support_tech')],
+        [Markup.button.callback('📝 Sonstiges', 'support_other')],
+        [Markup.button.callback('🔙 Zurück', 'start')]
+      ]).reply_markup
     });
+
+    await ctx.answerCbQuery();
   });
 
-  // Links anzeigen
-  bot.action('menu_links', async (ctx) => {
-    const text = '🔗 *Wichtige Links:*';
+  // === Thema auswählen → blockieren bei offenem Ticket
+  bot.action(/^support_/, async (ctx) => {
+    if (activeThreads[ctx.from.id]) {
+      return ctx.answerCbQuery('❗ Du hast bereits ein offenes Ticket.', { show_alert: true });
+    }
 
-    await ctx.editMessageText(text, {
+    const topic = ctx.match.input.replace('support_', '');
+    supportState[ctx.from.id] = { step: 'waiting_message', topic };
+
+    const texts = {
+      vip: '📦 *VIP-Zugang*\n\nBitte sende uns den Chatnachweis mit dem VIP-Bot sowie den Kaufbeleg, den du per E-Mail von CryptoVoucher erhalten hast. \n\nBitte keine Nachrichten wie „Wie lange noch?“. Warte mindestens 24h – dann kannst du Support schreiben.',
+      payment: '💰 *Payment / Forward Chat*\n\nTelegram hat Gruppen & Zugänge gesperrt. Alle müssen neu kaufen. Neue Links werden regelmäßig im jeweiligen Kanal gepostet – meist nach ca. 1 Woche.',
+      tech: '🛠 *Technisches Problem*\n\nHast du Probleme beim Anzeigen unserer Beiträge oder Gruppen? Dann schildere dein Problem hier. Bitte keine Fragen wie „Wann öffnet die Gruppe?“ – dafür schau in die FAQ.',
+      other: '📝 *Sonstiges*\n\nHast du Probleme mit Beiträgen, Admins oder hast etwas Verdächtiges bemerkt? Dann teile es uns hier mit. Auch hier gilt: keine „Wann öffnet“-Fragen – siehe FAQ.'
+    };
+
+    await ctx.editMessageText(`${texts[topic]}\n\n✍️ *Sende deine Nachricht:*`, {
       parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '📸 Instagram', url: 'https://instagram.com/offiziell.worldskandi' }],
-          [{ text: '👻 Snapchat', url: 'https://www.snapchat.com/@offiziellwsk' }],
-          [{ text: '🎥 Velvet', url: 'https://t.me/VelvetGlobal' }],
-          [{ text: '🔞 Skandi', url: 'https://t.me/+h_SoVDxZc1lhZjRh' }],
-          [{ text: '💾 Speicher-Kanal', url: 'https://t.me/+Be0bO9BWhHk1ZWU0' }],
-          [{ text: '📋 Beitrittsliste', url: 'https://t.me/addlist/ztczKNjf1LNjMzFk' }],
-          [{ text: '🔙 Zurück', callback_data: 'start' }]
-        ]
-      }
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback('🔙 Zurück', 'menu_support')]
+      ]).reply_markup
     });
+
+    await ctx.answerCbQuery();
   });
 
-  // News
-  bot.action('menu_news', async (ctx) => {
-    await ctx.editMessageText('🆕 Es gibt aktuell keine neuen Ankündigungen.', {
-      reply_markup: {
-        inline_keyboard: [[{ text: '🔙 Zurück', callback_data: 'start' }]]
-      }
-    });
-  });
+  // === Nachrichten vom User (neues Ticket oder Follow-up)
+  bot.on('message', async (ctx) => {
+    const userId = ctx.from.id;
+    const username = ctx.from.username || 'unbekannt';
+    const state = supportState[userId];
+    const text = ctx.message.text || ctx.message.caption || '';
 
-  // Start-Button (für Zurück)
-  bot.action('start', async (ctx) => {
-    const username = ctx.from.username || ctx.from.first_name || 'User';
-    await ctx.editMessageText(`👋 Willkommen @${username} beim Worldskandi Support-Bot!\n\nBitte wähle eine Option:`, {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '📂 FAQ', callback_data: 'menu_faq' },
-            { text: '🔗 Links', callback_data: 'menu_links' }
-          ],
-          [
-            { text: '🛠️ Support', callback_data: 'menu_support' },
-            { text: '🆕 News', callback_data: 'menu_news' }
-          ]
-        ]
+    // === Neues Ticket erstellen
+    if (ctx.chat.type === 'private' && state?.step === 'waiting_message') {
+      if (isSpam(text)) {
+        return ctx.reply('⚠️ Bitte stelle eine echte Support-Frage. Kein Spam erlaubt.');
       }
-    });
+
+      const topicMap = {
+        vip: '📦 VIP-Zugang',
+        payment: '💰 Payment / Forward Chat',
+        tech: '🛠️ Technisches Problem',
+        other: '📝 Sonstiges'
+      };
+      const niceTopic = topicMap[state.topic] || 'Support';
+
+      try {
+        const thread = await ctx.telegram.createForumTopic(SUPPORT_GROUP_ID, `${niceTopic} – @${username}`);
+        const threadId = thread.message_thread_id;
+        activeThreads[userId] = threadId;
+
+        const header = `🆕 *Support-Ticket*\n👤 [@${username}](tg://user?id=${userId})\n🆔 \`${userId}\`\n📝 Thema: ${niceTopic}\n\n`;
+        await forwardMessage(ctx, threadId, header);
+
+        await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, '👮 Admin-Aktion erforderlich:', {
+          message_thread_id: threadId,
+          reply_markup: Markup.inlineKeyboard([
+            [
+              Markup.button.callback('✅ Akzeptieren', `accept_${userId}`),
+              Markup.button.callback('❌ Ablehnen', `deny_${userId}`)
+            ]
+          ]).reply_markup
+        });
+
+        await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, '🛑 Ticket abschließen?', {
+          message_thread_id: threadId,
+          reply_markup: Markup.inlineKeyboard([
+            [Markup.button.callback('✅ Ticket abschließen', `close_${userId}`)]
+          ]).reply_markup
+        });
+
+        await ctx.reply('✅ Dein Anliegen wurde weitergeleitet. Ein Admin meldet sich bald.');
+      } catch (err) {
+        console.error('❌ Fehler beim Thread:', err);
+        await ctx.reply('⚠️ Fehler beim Erstellen des Tickets.');
+      }
+
+      delete supportState[userId];
+      return;
+    }
+
+    // === Folge-Nachricht vom User (bei offenem Ticket)
+    if (ctx.chat.type === 'private' && activeThreads[userId]) {
+      const threadId = activeThreads[userId];
+      const forwardText = `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\`\n\n`;
+      await forwardMessage(ctx, threadId, forwardText);
+      return ctx.reply('✅ Nachricht an den Support gesendet.');
+    }
+
+    // === Admin antwortet im Thread → nur bei Text weiterleiten
+    const isThreadReply = ctx.chat.id.toString() === SUPPORT_GROUP_ID.toString() && ctx.message.message_thread_id;
+    if (isThreadReply) {
+      const threadId = ctx.message.message_thread_id;
+      const userIdFromThread = Object.entries(activeThreads).find(([uid, tid]) => tid === threadId)?.[0];
+      if (!userIdFromThread) return;
+
+      if (ctx.message.text) {
+        const replyText = `📩 *Antwort vom Worldskandi Team*\n\n💬 ${ctx.message.text}`;
+        try {
+          await ctx.telegram.sendMessage(userIdFromThread, replyText, { parse_mode: 'Markdown' });
+        } catch (err) {
+          console.error('❌ Fehler bei Antwort an User:', err.message);
+        }
+      }
+    }
   });
 }
 
-module.exports = setupMenu;
+module.exports = setupTicketFlow;
