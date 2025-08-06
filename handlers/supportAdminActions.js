@@ -4,8 +4,9 @@ const activeThreads = require('./supportState').activeThreads;
 
 function registerSupportActions(bot) {
   // ✅ Akzeptieren → Thread erstellen
-  bot.action(/^accept_(\d+)$/, async (ctx) => {
+  bot.action(/^accept_(\d+)(_.*)?$/, async (ctx) => {
     const userId = ctx.match[1];
+    const topicKey = ctx.match[2]?.replace('_', '') || 'support';
     const username = ctx.update.callback_query?.message?.text?.match(/@(\w+)/)?.[1] || 'User';
 
     try {
@@ -14,11 +15,12 @@ function registerSupportActions(bot) {
 
       activeThreads[userId] = threadId;
 
-      // Ursprüngliche Nachricht reinposten
+      // Begrüßung im Thread
       await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, `📩 Ticket von @${username} übernommen.`, {
         message_thread_id: threadId
       });
 
+      // Abschluss-Button im Thread
       await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, '🛑 Ticket abschließen?', {
         message_thread_id: threadId,
         reply_markup: Markup.inlineKeyboard([
@@ -26,12 +28,13 @@ function registerSupportActions(bot) {
         ])
       });
 
+      // Info an User
       await ctx.telegram.sendMessage(userId, '✅ Ein Admin kümmert sich gleich um dein Anliegen.');
 
       await ctx.answerCbQuery('Ticket akzeptiert.');
     } catch (err) {
       console.error('❌ Fehler beim Thread-Erstellen:', err);
-      await ctx.reply('⚠️ Fehler beim Erstellen des Threads.');
+      await ctx.answerCbQuery('⚠️ Fehler beim Erstellen des Threads.', { show_alert: true });
     }
   });
 
@@ -45,6 +48,7 @@ function registerSupportActions(bot) {
       await ctx.answerCbQuery('Ticket abgelehnt.');
     } catch (err) {
       console.error('❌ Fehler beim Ablehnen:', err.message);
+      await ctx.answerCbQuery('⚠️ Fehler beim Ablehnen.', { show_alert: true });
     }
   });
 
@@ -54,10 +58,11 @@ function registerSupportActions(bot) {
     delete activeThreads[userId];
 
     try {
-      await ctx.telegram.sendMessage(userId, '✅ Dein Ticket wurde abgeschlossen.');
+      await ctx.telegram.sendMessage(userId, '✅ Dein Ticket wurde abgeschlossen. Du kannst wieder ein neues Ticket erstellen.');
       await ctx.answerCbQuery('Ticket abgeschlossen.');
     } catch (err) {
       console.error('❌ Fehler beim Abschließen:', err.message);
+      await ctx.answerCbQuery('⚠️ Fehler beim Abschließen.', { show_alert: true });
     }
   });
 }
