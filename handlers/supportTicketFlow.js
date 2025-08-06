@@ -5,22 +5,32 @@ const isSpam = require('./supportSpamCheck');
 const forwardMessage = require('./supportForward');
 
 function setupTicketFlow(bot, supportState) {
-  // === /start zeigt Hauptmenü ===
+  // === /start-Menü mit Buttons + Username ===
   bot.start(async (ctx) => {
+    const username = ctx.from.username || ctx.from.first_name || 'User';
+
     if (activeThreads[ctx.from.id]) {
       return ctx.reply('❗ Du hast bereits ein offenes Ticket. Bitte warte auf eine Antwort.');
     }
 
-    await ctx.reply('👋 *Willkommen beim Worldskandi Support-Bot!*\n\nBitte wähle eine Option:', {
+    await ctx.telegram.sendMessage(ctx.chat.id, `👋 Willkommen @${username} beim *Worldskandi Support-Bot!*\n\nBitte wähle eine Option:`, {
       parse_mode: 'Markdown',
-      reply_markup: Markup.inlineKeyboard([
-        [Markup.button.callback('📂 FAQ', 'menu_faq'), Markup.button.callback('🔗 Links', 'menu_links')],
-        [Markup.button.callback('🛠️ Support', 'menu_support'), Markup.button.callback('🆕 News', 'menu_news')]
-      ])
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '📂 FAQ', callback_data: 'menu_faq' },
+            { text: '🔗 Links', callback_data: 'menu_links' }
+          ],
+          [
+            { text: '🛠️ Support', callback_data: 'menu_support' },
+            { text: '🆕 News', callback_data: 'menu_news' }
+          ]
+        ]
+      }
     });
   });
 
-  // === Thema auswählen ===
+  // === Support-Start-Menü ===
   bot.action('menu_support', async (ctx) => {
     if (activeThreads[ctx.from.id]) {
       return ctx.answerCbQuery('❗ Du hast bereits ein offenes Ticket.', { show_alert: true });
@@ -41,6 +51,7 @@ function setupTicketFlow(bot, supportState) {
     await ctx.answerCbQuery();
   });
 
+  // === Thema wählen ===
   bot.action(/^support_/, async (ctx) => {
     if (activeThreads[ctx.from.id]) {
       return ctx.answerCbQuery('❗ Du hast bereits ein offenes Ticket.', { show_alert: true });
@@ -66,6 +77,7 @@ function setupTicketFlow(bot, supportState) {
     await ctx.answerCbQuery();
   });
 
+  // === Nachrichten-Handler ===
   bot.on('message', async (ctx) => {
     const userId = ctx.from.id;
     const username = ctx.from.username || 'unbekannt';
@@ -103,7 +115,6 @@ function setupTicketFlow(bot, supportState) {
           ]).reply_markup
         });
 
-        // Extra Abschluss-Button
         await ctx.telegram.sendMessage(SUPPORT_GROUP_ID, '🛑 *Support-Ticket beenden?*', {
           message_thread_id: threadId,
           parse_mode: 'Markdown',
@@ -122,7 +133,7 @@ function setupTicketFlow(bot, supportState) {
       return;
     }
 
-    // === Folge-Nachricht vom User
+    // === Antwort vom User (zweite Nachricht)
     else if (ctx.chat.type === 'private' && activeThreads[userId]) {
       const threadId = activeThreads[userId];
       const forwardText = `📨 *Antwort vom User*\n👤 @${username}\n🆔 \`${userId}\`\n\n`;
@@ -130,7 +141,7 @@ function setupTicketFlow(bot, supportState) {
       return ctx.reply('✅ Nachricht an den Support gesendet.');
     }
 
-    // === Kein gültiger Status
+    // === Fallback
     else if (ctx.chat.type === 'private') {
       return ctx.reply('❗ Du hast bereits ein offenes Ticket. Bitte warte auf eine Antwort.');
     }
