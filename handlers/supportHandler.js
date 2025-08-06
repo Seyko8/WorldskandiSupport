@@ -1,12 +1,16 @@
+const setupMenu = require('./menuHandler');
 const setupTicketFlow = require('./supportTicketFlow');
 const setupAdminActions = require('./supportAdminActions');
-const setupMenu = require('./menuHandler');
 
 function registerSupport(bot) {
-  // 🔧 Lade alle Support-bezogenen Module
-  setupMenu(bot);             // Menü: FAQ, Links, Start, News
-  setupTicketFlow(bot);       // Ticket-Flow: Anfrage senden, Spam-Check, Weiterleitung
-  setupAdminActions(bot);     // Admin-Aktionen: Akzeptieren, Ablehnen, Abschließen
+  // 📂 Menü-Handler (FAQ, Links, News, Zurück)
+  setupMenu(bot);
+
+  // 🎫 Ticket-Flow (User schreibt → Thread oder General)
+  setupTicketFlow(bot);
+
+  // 🛡️ Admin-Buttons (Akzeptieren, Ablehnen, Abschließen)
+  setupAdminActions(bot);
 }
 
 module.exports = { registerSupport };
